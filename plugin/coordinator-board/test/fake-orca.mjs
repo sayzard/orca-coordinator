@@ -7,7 +7,7 @@ if (args[0] === 'terminal' && args[1] === 'send' && handle === 'term_menu-0001')
 } else if (args[0] === 'terminal' && args[1] === 'send') {
   console.log(JSON.stringify({ ok: true, result: { send: { accepted: true, prompt: { requestId: 'req-term-1', stages: ['input_accepted', 'turn_started'] } } } }))
 } else if (args[0] === 'repo' && args[1] === 'list') {
-  console.log(JSON.stringify({ ok: true, result: { repos: [{ id: 'repo-alpha', displayName: 'alpha', kind: 'git' }, { id: 'repo-beta', displayName: 'beta', kind: 'git' }] } }))
+  console.log(JSON.stringify({ ok: true, result: { repos: [{ id: 'repo-alpha', displayName: 'alpha', kind: 'git' }, { id: 'repo-beta', displayName: 'beta', kind: 'git' }, { id: 'repo-bare' }] } }))
 } else {
   console.log(JSON.stringify({ ok: true, result: {} }))
 }

@@ -23,7 +23,7 @@ export function run(mode, argv) {
   if (cmd === 'status') return ok(status)
   if (cmd === 'decision' && sub === 'prepare') return ok({ id, handle: 'term_q-0003', sessionId: 'sess-question', message: '[Coordinator Board · alpha · Deployment strategy]\n' + args[args.indexOf('--text') + 1] })
   if (cmd === 'decision') return ok({ id, status: 'answered', via: 'mail', messageId: 'msg_fake' })
-  if (cmd === 'request') return ok({ id: 'req_fake', status: 'sent', messageId: 'msg_fake' })
+  if (cmd === 'request') return process.env.FAKE_COORD_REQUEST_QUEUED ? ok({ id: 'req_fake', status: 'queued', note: 'No coordinator is running.' }) : ok({ id: 'req_fake', status: 'sent', messageId: 'msg_fake' })
   if (cmd === 'digest') return ok({ messageId: 'msg_fake' })
   if (cmd === 'setup') return ok({ projects: sub === '--show' ? [] : ['repo-alpha'] })
   if (cmd === 'coordinator') return ok({ sessionId: 'sess-new', agent: 'claude', model: 'claude-opus-5-5' })

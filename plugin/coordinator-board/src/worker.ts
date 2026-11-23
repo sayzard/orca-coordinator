@@ -21,7 +21,7 @@ export function deactivate(): void {
   pollTimer = null
 }
 
-type Envelope = { ok: true; result: any } | { ok: false; error: { code: string; message: string; data?: any } }
+type Envelope = { ok: true; result: any } | { ok: false; error: { code: string; message: string } }
 
 function exec(file: string, args: string[], timeoutMs: number): Promise<Envelope> {
   return new Promise((resolve) => {
@@ -29,7 +29,12 @@ function exec(file: string, args: string[], timeoutMs: number): Promise<Envelope
       const text = String(stdout || '').trim()
       try {
         const parsed = JSON.parse(text)
-        if (parsed && typeof parsed.ok === 'boolean') return resolve(parsed)
+        if (parsed && parsed.ok === true) return resolve(parsed)
+        // Failure fields reach the panel as-is, so make sure they are strings.
+        if (parsed && parsed.ok === false) {
+          const e = parsed.error || {}
+          return resolve({ ok: false, error: { code: String(e.code || 'error'), message: String(e.message ?? '') } })
+        }
       } catch {}
       const killed = (error as any)?.killed
       resolve({ ok: false, error: { code: killed ? 'timeout' : 'exec_failed', message: (String(stderr || '') || text || String(error)).slice(0, 400) } })
@@ -68,11 +73,13 @@ export default function activate(orca: OrcaWorkerApi): void {
   function result(env: Envelope, ok: (r: any) => { key: Key; params?: Record<string, string | number> }): ActionResult {
     if (!env.ok) return { ok: false, code: env.error.code, message: env.error.message }
     const { key, params } = ok(env.result)
-    return { ok: true, key, params, message: t('en', key, params) }
+    return done(key, params)
   }
 
+  /** The host rejects `undefined` anywhere in a handler result ("non-JSON value"), so a missing
+   * `params` is left out rather than sent as `params: undefined`. */
   function done(key: Key, params?: Record<string, string | number>): ActionResult {
-    return { ok: true, key, params, message: t('en', key, params) }
+    return { ok: true, key, ...(params ? { params } : {}), message: t('en', key, params) }
   }
 
   async function updateStatusBar(status: BoardStatus | null, error?: string) {
@@ -240,7 +247,7 @@ export default function activate(orca: OrcaWorkerApi): void {
     const managed = new Set<string>(cfg.ok ? cfg.result.projects || [] : [])
     return {
       ok: true,
-      repos: (repos.result.repos || []).map((r: any) => ({ id: r.id, name: r.displayName, kind: r.kind, managed: managed.has(r.id) }))
+      repos: (repos.result.repos || []).map((r: any) => ({ id: String(r.id), name: String(r.displayName || r.id), kind: String(r.kind || ''), managed: managed.has(r.id) }))
     }
   })
 

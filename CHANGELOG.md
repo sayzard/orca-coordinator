@@ -13,6 +13,10 @@ All notable changes to this project are documented here. The format follows
   that turn appears under "Needs you".
 - More ways of asking the person to decide are detected, e.g. Korean "정해/골라/알려/말씀해 …
   주시면 · 주세요 · 주십시오" and English "tell me whether…", "which would you prefer".
+- Panel buttons ([Send], [Open session], [Dismiss] and others) no longer show "<action> answered
+  with a non-JSON value" after they worked: worker results leave out empty fields instead of
+  sending `undefined`, which the Orca host rejects, and coord error envelopes are coerced to
+  strings.
 
 ## [0.3.4] - 2026-11-23
 

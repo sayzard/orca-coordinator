@@ -160,3 +160,88 @@ test('a chat in a folder workspace opens through the host API, by its folder pat
   assert.deepEqual(host.callsOf('workspace.open'), [{ workspaceId: 'ws-bots' }])
   await worker.deactivate()
 })
+
+/** What the Orca host accepts from a handler: plain JSON only. `undefined` (even as an object
+ * field), functions, non-finite numbers and class instances make it answer "non-JSON value". */
+function assertJsonClean(value: unknown, path = 'result'): void {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return
+  if (typeof value === 'number') return assert.ok(Number.isFinite(value), `${path} is a non-finite number`)
+  if (Array.isArray(value)) return value.forEach((v, i) => assertJsonClean(v, `${path}[${i}]`))
+  assert.ok(typeof value === 'object', `${path} is ${typeof value}`)
+  const proto = Object.getPrototypeOf(value)
+  assert.ok(proto === Object.prototype || proto === null, `${path} is not a plain object`)
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) assertJsonClean(v, `${path}.${k}`)
+}
+
+test('every handler success result is plain JSON the host accepts', async () => {
+  const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
+  process.env.FAKE_COORD_LOG = log
+  const host = mockHost({
+    settings: { coordPath: fake('fake-coord.mjs'), notify: false, language: 'en' },
+    results: {
+      'statusBar.update': { ok: true },
+      'notifications.show': { delivered: true },
+      'commands.run': { ran: true },
+      'workspace.list': { workspaces: [{ id: 'ws-bots', kind: 'folder', name: 'Bots', path: '/work/bots', branch: null, hostId: 'local' }], truncated: false },
+      'workspace.open': { opened: true }
+    }
+  })
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const results: [string, unknown][] = []
+  const call = async (name: string, input?: unknown) => {
+    const r = await (worker.request as any)(name, input)
+    results.push([name, r])
+    return r
+  }
+  await call('board.snapshot', { fresh: true })
+  // decision.send: terminal (done), chat mail (result); the ask relay is covered below.
+  assert.equal((await call('decision.send', { id: 'dec_x', text: 'Go canary, please.', fingerprint: 'fp1' })).ok, true)
+  assert.equal((await call('decision.send', { id: 'auto:sess-chat', text: 'Open a PR, please.' })).ok, true)
+  assert.equal((await call('decision.coordinate', { id: 'dec_x', text: 'Handle it.' })).ok, true)
+  assert.equal((await call('decision.dismiss', { id: 'dec_x' })).ok, true)
+  assert.equal((await call('request.send', { text: 'Investigate the login bug', project: 'repo-alpha' })).ok, true)
+  process.env.FAKE_COORD_REQUEST_QUEUED = '1'
+  const queued = await call('request.send', { text: 'Later', project: null })
+  delete process.env.FAKE_COORD_REQUEST_QUEUED
+  assert.equal(queued.key, 'msg.requestQueued')
+  assert.equal((await call('digest.request')).ok, true)
+  // session.open: terminal switch, host workspace.open by folder path, worktree activate.
+  assert.equal((await call('session.open', { kind: 'terminal', handle: 'term_q-0003', workspaceSelector: 'path:/work/x' })).ok, true)
+  assert.equal((await call('session.open', { kind: 'chat', handle: 'orca_session_id:abc', workspaceSelector: 'folder:abc', path: '/work/bots' })).ok, true)
+  assert.equal((await call('session.open', { kind: 'chat', handle: null, workspaceSelector: 'path:/work/x', path: null })).ok, true)
+  const repos = await call('projects.list')
+  assert.equal(repos.ok, true)
+  // A repo the orca CLI lists without displayName/kind still gets string fields.
+  assert.deepEqual(repos.repos.find((r: any) => r.id === 'repo-bare'), { id: 'repo-bare', name: 'repo-bare', kind: '', managed: false })
+  assert.equal((await call('projects.set', { ids: ['repo-alpha'] })).ok, true)
+  assert.equal((await call('coordinator.start')).ok, true)
+  for (const [name, r] of results) {
+    assertJsonClean(r, name)
+    assert.deepStrictEqual(r, JSON.parse(JSON.stringify(r)), `${name} does not survive a JSON round trip`)
+  }
+  await worker.deactivate()
+})
+
+test('the ask relay success result is plain JSON', async () => {
+  const { host } = setup('fake-coord-ask.mjs')
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const snap = await worker.request('board.snapshot', { fresh: true })
+  const card = snap.ok ? snap.status.decisions.find((d) => d.askMessageId) : null
+  const r = await worker.request('decision.send', { id: card!.id, text: 'Use Apache-2.0.' })
+  assert.equal(r.ok, true)
+  assertJsonClean(r, 'decision.send')
+  await worker.deactivate()
+})
+
+test('a coord error envelope without strings still yields a JSON error result', async () => {
+  const { host } = setup('fake-coord-bad-error.mjs')
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const r = await worker.request('decision.dismiss', { id: 'dec_x' })
+  assert.equal(r.ok, false)
+  assertJsonClean(r, 'decision.dismiss')
+  assert.equal(typeof r.code, 'string')
+  assert.equal(typeof r.message, 'string')
+  const snap = await worker.request('board.snapshot', { fresh: true })
+  assertJsonClean(snap, 'board.snapshot')
+  await worker.deactivate()
+})
