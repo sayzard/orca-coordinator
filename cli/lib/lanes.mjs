@@ -63,7 +63,7 @@ function cleanMenuText(message) {
 }
 
 /** The reply to judge: the transcript's final reply when known, else what Orca reported. */
-function replyOf(agent) {
+export function replyOf(agent) {
   return agent.finalReply || agent.lastAssistantMessage || ''
 }
 
@@ -77,14 +77,22 @@ function attentionFor(agent) {
     const text = cleanMenuText(ps.message) || (kind === 'permission' ? 'A permission prompt is waiting.' : 'A menu is waiting for a choice.')
     return { kind, text, canReply: false }
   }
+  // A model's reading of the finished turn (cli/lib/classify.mjs) beats the rules when present.
+  const c = agent.turnClass
   if (agent.state === 'waiting') {
-    return { kind: 'question', text: detectQuestion(replyOf(agent)) || cleanMenuText(ps.message) || 'Waiting for input.', canReply: true }
+    const text = (c?.label === 'decision' && c.question) || detectQuestion(replyOf(agent)) || cleanMenuText(ps.message) || 'Waiting for input.'
+    return { kind: 'question', text, canReply: true, source: c ? 'model' : 'rule' }
   }
   if (agent.state === 'done') {
+    if (c) return c.label === 'decision' ? { kind: 'question', text: c.question || detectQuestion(replyOf(agent)) || lastLine(replyOf(agent)), canReply: true, source: 'model' } : null
     const q = detectQuestion(replyOf(agent))
-    if (q) return { kind: 'question', text: q, canReply: true }
+    if (q) return { kind: 'question', text: q, canReply: true, source: 'rule' }
   }
   return null
+}
+
+function lastLine(text) {
+  return (text.split('\n').filter((l) => l.trim()).pop() || '').trim().slice(0, 400)
 }
 
 function laneFor(agent, attention) {
@@ -202,6 +210,8 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
         attention,
         lane: laneFor(agent, attention),
         background: Boolean(agent.background),
+        // decision | offer | none from the model, when the turn was classified.
+        turnLabel: agent.turnClass?.label || null,
         fingerprint: fingerprint(agent)
       })
     }

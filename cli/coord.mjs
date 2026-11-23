@@ -48,6 +48,7 @@ Decision cards
 Setup
   coord setup --show | --projects <repo,...> | --add <repo> | --remove <repo>
               | --reserve <0-90> | --exclude <agent,...> | --language <en|ko|...>
+              | --classifier off|on|<model>                 Turn-end classification with a small model
   coord coordinator start [--agent claude|codex] | set --session <orcaSessionId> | show
   coord board ensure                                  Find or create the board's mailbox terminal
 `
@@ -120,6 +121,7 @@ async function main() {
       project: { type: 'string' },
       source: { type: 'string' },
       'body-file': { type: 'string' },
+      classifier: { type: 'string' },
       pending: { type: 'boolean' },
       status: { type: 'string' },
       note: { type: 'string' },
@@ -293,9 +295,13 @@ async function main() {
         if (values.reserve !== undefined) c.reservePercent = Math.min(90, Math.max(0, Number(values.reserve) || 0))
         if (values.exclude !== undefined) c.excludedAgents = values.exclude.split(',').map((s) => s.trim()).filter(Boolean)
         if (values.language) c.language = values.language.trim().toLowerCase()
+        if (values.classifier !== undefined) {
+          const v = values.classifier.trim()
+          c.classifier = v === 'off' ? { ...(c.classifier || {}), enabled: false } : { ...(c.classifier || {}), enabled: true, ...(v && v !== 'on' ? { model: v } : {}) }
+        }
         return c
       })
-      return out(next, json, `Saved. ${next.projects.length} managed projects (none = all), usage reserve ${next.reservePercent}%, language ${next.language}`)
+      return out(next, json, `Saved. ${next.projects.length} managed projects (none = all), usage reserve ${next.reservePercent}%, language ${next.language}, turn classifier ${next.classifier?.enabled === false ? 'off' : next.classifier?.model}`)
     }
     case 'coordinator': {
       if (sub === 'show' || !sub) return out(config.coordinator, json, config.coordinator ? JSON.stringify(config.coordinator, null, 2) : 'no coordinator (coord coordinator start)')

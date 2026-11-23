@@ -8,7 +8,7 @@
 //   node scripts/detection-eval.mjs build [--days 14]   collect turn ends (Claude Code, Codex, board signals)
 //   node scripts/detection-eval.mjs queue [--n 40] [--split tune|holdout|all]   unlabeled items to label
 //   node scripts/detection-eval.mjs label <file.jsonl>  import labels {id,label,line?,by,note?}
-//   node scripts/detection-eval.mjs eval [--json]       precision/recall per split; tune errors to a file
+//   node scripts/detection-eval.mjs eval [--json] [--model <id>]   rules (and a model) per split; tune errors to a file
 //   node scripts/detection-eval.mjs stats
 import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, appendFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { detectQuestion } from '../cli/lib/lanes.mjs'
 import { dataPath } from '../cli/lib/paths.mjs'
 import { readSignals } from '../cli/lib/signals.mjs'
+import { classifyText, classifierSettings, PROMPT_ID } from '../cli/lib/classify.mjs'
 
 export const LABELS = ['decision', 'offer', 'none']
 const REPLY_CHARS = 4000
@@ -179,13 +180,15 @@ export function latestLabels(rows) {
  * decision: recall and precision. offer: only how often it is flagged (where offers belong is the
  * person's call). none: false-alarm rate.
  */
-export function score(items, labels, detect = detectQuestion) {
+export function score(items, labels, detect = detectQuestion, classOf = null) {
   const c = { decision: { n: 0, flagged: 0 }, offer: { n: 0, flagged: 0 }, none: { n: 0, flagged: 0 } }
   const errors = []
+  let agree = 0
   for (const it of items) {
     const l = labels.get(it.id)
     if (!l) continue
-    const line = detect(it.reply)
+    if (classOf && classOf(it) === l.label) agree += 1
+    const line = detect(it.reply, it)
     const flagged = Boolean(line)
     c[l.label].n += 1
     if (flagged) c[l.label].flagged += 1
@@ -202,6 +205,7 @@ export function score(items, labels, detect = detectQuestion) {
     decisionPrecision: pct(c.decision.flagged, flaggedAll),
     offerFlaggedRate: pct(c.offer.flagged, c.offer.n),
     noneFalseAlarmRate: pct(c.none.flagged, c.none.n),
+    ...(classOf ? { threeClassAgreement: pct(agree, c.decision.n + c.offer.n + c.none.n) } : {}),
     errors
   }
 }
@@ -247,15 +251,48 @@ function label(path) {
   return { imported: good.length, skipped: rows.length - good.length }
 }
 
-function evaluate() {
+/** Model labels for the labeled items, cached per model and prompt version (only new items are sent). */
+async function modelPredictions(items, model) {
+  const path = file(`model-${model}-p${PROMPT_ID}.jsonl`)
+  const done = new Map(readJsonl(path).map((r) => [r.id, r]))
+  const todo = items.filter((i) => !done.has(i.id))
+  const settings = classifierSettings({ classifier: { model } })
+  let next = 0
+  const fresh = []
+  await Promise.all(
+    Array.from({ length: 8 }, async () => {
+      while (next < todo.length) {
+        const it = todo[next++]
+        const r = await classifyText(it.reply, settings)
+        if (!r.error) fresh.push({ id: it.id, label: r.label, question: r.question })
+      }
+    })
+  )
+  if (fresh.length) appendFileSync(path, fresh.map((r) => JSON.stringify(r)).join('\n') + '\n', { mode: 0o600 })
+  for (const r of fresh) done.set(r.id, r)
+  return { predictions: done, failed: todo.length - fresh.length }
+}
+
+async function evaluate({ model } = {}) {
   const items = readJsonl(file('corpus.jsonl'))
   const labels = latestLabels(readJsonl(file('labels.jsonl')))
-  const tune = score(items.filter((i) => i.split === 'tune'), labels)
-  const holdout = score(items.filter((i) => i.split === 'holdout'), labels)
+  const strip = ({ errors, ...rest }) => rest
+  const split = (name) => items.filter((i) => i.split === name)
+  const tune = score(split('tune'), labels)
+  const holdout = score(split('holdout'), labels)
   // Only tune errors are written out: tune on them, keep holdout as the honest check.
   writeFileSync(file('errors-tune.jsonl'), tune.errors.map((e) => JSON.stringify({ ...e, ...pick(items, e.id) })).join('\n') + (tune.errors.length ? '\n' : ''), { mode: 0o600 })
-  const strip = ({ errors, ...rest }) => rest
-  return { at: new Date().toISOString(), corpus: items.length, tune: strip(tune), holdout: strip(holdout), tuneErrorsFile: file('errors-tune.jsonl') }
+  const result = { at: new Date().toISOString(), corpus: items.length, rules: { tune: strip(tune), holdout: strip(holdout) }, tuneErrorsFile: file('errors-tune.jsonl') }
+  if (model) {
+    const { predictions, failed } = await modelPredictions(items.filter((i) => labels.has(i.id)), model)
+    const detect = (_reply, it) => (predictions.get(it.id)?.label === 'decision' ? predictions.get(it.id).question || 'decision' : null)
+    const classOf = (it) => predictions.get(it.id)?.label
+    const mt = score(split('tune'), labels, detect, classOf)
+    const mh = score(split('holdout'), labels, detect, classOf)
+    writeFileSync(file(`errors-tune-${model}.jsonl`), mt.errors.map((e) => JSON.stringify({ ...e, predicted: classOf({ id: e.id }), ...pick(items, e.id) })).join('\n') + (mt.errors.length ? '\n' : ''), { mode: 0o600 })
+    result.model = { id: model, promptId: PROMPT_ID, failed, tune: strip(mt), holdout: strip(mh), tuneErrorsFile: file(`errors-tune-${model}.jsonl`) }
+  }
+  return result
 }
 
 function pick(items, id) {
@@ -272,19 +309,22 @@ function stats() {
 }
 
 function text(r) {
-  const fmt = (s) => `labeled ${s.labeled} · decision recall ${s.decisionRecall ?? '-'}% · precision ${s.decisionPrecision ?? '-'}% · offers flagged ${s.offerFlaggedRate ?? '-'}% · none false alarms ${s.noneFalseAlarmRate ?? '-'}%`
-  return [`corpus ${r.corpus}`, `tune:    ${fmt(r.tune)}`, `holdout: ${fmt(r.holdout)}`, `tune errors: ${r.tuneErrorsFile}`].join('\n')
+  const fmt = (s) => `labeled ${s.labeled} · decision recall ${s.decisionRecall ?? '-'}% · precision ${s.decisionPrecision ?? '-'}% · offers flagged ${s.offerFlaggedRate ?? '-'}% · none false alarms ${s.noneFalseAlarmRate ?? '-'}%${s.threeClassAgreement != null ? ` · 3-class agreement ${s.threeClassAgreement}%` : ''}`
+  const lines = [`corpus ${r.corpus}`, 'rules', `  tune:    ${fmt(r.rules.tune)}`, `  holdout: ${fmt(r.rules.holdout)}`]
+  if (r.model) lines.push(`model ${r.model.id} (prompt ${r.model.promptId}${r.model.failed ? `, ${r.model.failed} failed` : ''})`, `  tune:    ${fmt(r.model.tune)}`, `  holdout: ${fmt(r.model.holdout)}`)
+  lines.push(`tune errors: ${r.tuneErrorsFile}${r.model ? ` · ${r.model.tuneErrorsFile}` : ''}`)
+  return lines.join('\n')
 }
 
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2)
-  const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { days: { type: 'string' }, n: { type: 'string' }, split: { type: 'string' }, json: { type: 'boolean' } } })
+  const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { days: { type: 'string' }, n: { type: 'string' }, split: { type: 'string' }, json: { type: 'boolean' }, model: { type: 'string' } } })
   let result
   if (cmd === 'build') result = await build({ days: Number(values.days || 14) })
   else if (cmd === 'queue') result = queue({ n: Number(values.n || 40), split: values.split || 'tune' })
   else if (cmd === 'label') result = label(positionals[0])
   else if (cmd === 'eval') {
-    result = evaluate()
+    result = await evaluate({ model: values.model })
     if (!values.json) return console.log(text(result))
   } else if (cmd === 'stats') result = stats()
   else {

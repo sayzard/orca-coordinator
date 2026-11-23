@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Turn classification with a small model: each finished turn without a menu or permission prompt
+  is classified once (cached) as a decision for the person, an optional offer, or a report, using
+  Claude Haiku through the local `claude` CLI. Decisions become cards with the question to answer;
+  offers and reports no longer show under "Needs you". The rules remain the fallback.
+  `coord setup --classifier off|on|<model>` controls it. On a first set of 300 turns labeled by
+  a model judge (not yet checked by a person) it found 97–98% of decisions where the rules found
+  76–78%, at 91–97% precision (tune / holdout split).
 - A way to measure and tune question detection on real turns:
   `scripts/detection-eval.mjs` builds a private corpus of finished turns (Claude Code and Codex
   transcripts plus board signals) under the coordinator home, hands out items to label, and

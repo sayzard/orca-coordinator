@@ -6,12 +6,15 @@ import { readWorktrees, readAgentList, readUsage, readFinalReplies } from './dat
 import { readRequests, closedWorktrees } from './requests.mjs'
 import { readHistory } from './store.mjs'
 import { watchTurns } from './signals.mjs'
+import { readTurnClasses, applyTurnClasses } from './classify.mjs'
 
 export async function loadSessions(config, { fresh = false } = {}) {
   const [ps, agentList] = await Promise.all([readWorktrees(config, { fresh }), readAgentList(config, { fresh }).catch(() => null)])
   const exclude = config.coordinator?.sessionId ? [config.coordinator.sessionId] : []
   const finals = await readFinalReplies(ps).catch(() => ({}))
-  const sessions = deriveSessions(applyFinalReplies(ps, finals), { agentList, projects: config.projects || [], excludeSessions: exclude })
+  const withFinals = applyFinalReplies(ps, finals)
+  const classes = await readTurnClasses(withFinals, config, { projects: config.projects || [], excludeSessions: exclude }).catch(() => ({}))
+  const sessions = deriveSessions(applyTurnClasses(withFinals, classes), { agentList, projects: config.projects || [], excludeSessions: exclude })
   const closed = closedWorktrees()
   // A finished, verified request's worker is not waiting for review any more.
   const settled = settleHandled(sessions).map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))

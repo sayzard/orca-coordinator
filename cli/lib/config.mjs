@@ -68,7 +68,9 @@ export function defaultConfig() {
     reservePercent: 15,
     language: detectLanguage(),
     usageCacheSeconds: 300,
-    statusCacheSeconds: 5
+    statusCacheSeconds: 5,
+    // Turn-end classification with a small model (cli/lib/classify.mjs); { enabled: false } turns it off.
+    classifier: { enabled: true, model: 'claude-haiku-5-5' }
   }
 }
 
@@ -76,7 +78,7 @@ export function loadConfig() {
   const stored = readJson('config.json', null)
   const base = defaultConfig()
   if (!stored) return base
-  return { ...base, ...stored, routing: { ...base.routing, ...(stored.routing || {}) } }
+  return { ...base, ...stored, routing: { ...base.routing, ...(stored.routing || {}) }, classifier: { ...base.classifier, ...(stored.classifier || {}) } }
 }
 
 export async function saveConfig(mutate) {
