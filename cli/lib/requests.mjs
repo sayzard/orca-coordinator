@@ -3,6 +3,7 @@
 import { readJson, updateJson, appendHistory, newId, tempFile } from './store.mjs'
 import { orca } from './orca.mjs'
 import { sendAsBoard } from './board.mjs'
+import { coordinatorState } from './data.mjs'
 import { resolveRoute } from './routing.mjs'
 
 const EMPTY = { version: 1, requests: [] }
@@ -33,10 +34,14 @@ export async function createRequest({ text, source = 'human', project = null, co
 }
 
 async function deliverRequest(req, config) {
-  if (!config.coordinator?.sessionId) {
-    const note = 'no coordinator yet, so it was only queued (run coord coordinator start, then coord request resend)'
+  const state = await coordinatorState(config, { fresh: true })
+  if (state === 'none' || state === 'closed') {
+    const note =
+      state === 'none'
+        ? 'no coordinator yet, so it was only queued (run coord coordinator start, then coord request resend)'
+        : 'the coordinator chat is closed, so it was only queued (run coord coordinator start, then coord request resend)'
     await setRequest(req.id, { deliveryError: note })
-    return { ...req, status: 'queued', note }
+    return { ...req, status: 'queued', code: state === 'none' ? 'no_coordinator' : 'coordinator_closed', note }
   }
   try {
     const receipt = await sendAsBoard(config, {

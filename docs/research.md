@@ -134,7 +134,7 @@ Docs: https://orca.dev/docs/bots · https://orca.dev/docs/cli/orchestration · P
 
 ```
 Orca Bot ──coord request──┐                       ┌─ plugin worker → coord / orca terminal send
-Human (board panel) ──────┤                       │      └ panel: Decisions · Progress · Requests · Settings
+Human (board panel) ──────┤                       │      └ panel: Decisions · Progress · Kanban · Requests · Settings
                           ▼                       │
               ~/.orca-coordinator/*.json ◄────────┤
                           ▲                       │
@@ -150,6 +150,6 @@ Coordinator (chat) ──coord decision add / assign / status
 | "My decisions" cards (five sources) | Coordinator cards (`decision add`) + automatic cards (menus, permission prompts, replies that end in a question). Card actions: [Send], [Ask coordinator], [Open session], [Dismiss] |
 | Send guard | Compares a fingerprint (state, stateStartedAt, last reply, menu text, prompt); refuses while the session is working; menus get [Open session] instead |
 | Sending to the owning session on the human's behalf | [Send] on a terminal session: the plugin worker runs `orca terminal send --wait-submit`, only when a human clicked it. On a chat session: a mail sent under the board's identity |
-| Project kanban | Progress tab: per-project lanes Needs you / Running / To review / Idle |
+| Project kanban | Kanban tab: Running / To review / Needs you / Follow-up / Idle / Done columns with a project filter; the Progress tab lists sessions per project |
 | Manager → coordinator | A rule in the Orca Bot's SOUL.md: `coord request --source bot:<name>` |
 | Sidebar badge | Status bar "Decisions N" + notifications for menu and permission cards |

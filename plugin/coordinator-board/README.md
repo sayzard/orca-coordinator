@@ -7,9 +7,12 @@ in the repository's `coord` CLI (`../../cli/coord.mjs`); this plugin shows it an
   (on agent status events and every 45 s). When you press [Send] on a card for a terminal session,
   it validates the answer with `coord decision prepare` and types it with
   `orca terminal send --wait-submit`.
-- `src/panel.tsx` renders the Decisions · Progress · Requests · Settings tabs (components panel).
-  Progress is a kanban whose columns sit side by side in a wide sidebar and wrap in a narrow one.
+- `src/panel.tsx` renders the Decisions · Progress · Kanban · Requests · Settings tabs (components
+  panel). Progress lists sessions per project; Kanban's columns sit side by side in a wide sidebar
+  and wrap in a narrow one.
 - `src/i18n.ts` holds the UI strings (English, Korean). The panel follows Orca's UI language.
+- `assets/needs-you-*.png` are the frames of the pulsing "needs you" dot (Orca refuses animated
+  images); regenerate them with `python3 scripts/make-lane-marks.py`.
 - `test/fake-*.mjs` stand in for `coord` and `orca` in tests and in `orca plugin check`.
 
 ## Settings (Orca Settings → Coordinator Board)

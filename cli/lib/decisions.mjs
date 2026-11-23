@@ -6,6 +6,7 @@
 import { readJson, updateJson, appendHistory, newId, tempFile } from './store.mjs'
 import { orca } from './orca.mjs'
 import { sendAsBoard } from './board.mjs'
+import { requireCoordinator } from './data.mjs'
 
 const EMPTY = { version: 1, decisions: [], suppressed: [] }
 const PRIORITY_RANK = { now: 0, menu: 1, permission: 1, reply: 1, today: 2, week: 3, undated: 5 }
@@ -40,7 +41,7 @@ function attach(card, session) {
   return {
     ...card,
     target: session
-      ? { sessionId: session.sessionId, kind: session.kind, agent: session.agent, project: session.project, workspace: session.workspace, title: session.title, state: session.state, lane: session.lane, handle: session.handle, workspaceSelector: session.workspaceSelector }
+      ? { sessionId: session.sessionId, kind: session.kind, agent: session.agent, project: session.project, workspace: session.workspace, title: session.title, state: session.state, lane: session.lane, handle: session.handle, workspaceSelector: session.workspaceSelector, path: session.path }
       : card.target || null,
     stale: Boolean(!card.askMessageId && session && card.evidence?.fingerprint && card.source !== 'auto' && session.fingerprint !== card.evidence.fingerprint && card.status === 'open')
   }
@@ -192,7 +193,7 @@ export async function answerByMail({ id, text, via, seenFingerprint, sessions, c
   let to
   let body
   if (via === 'coordinator') {
-    if (!config.coordinator?.sessionId) throw new Error('no_coordinator: start one first with coord coordinator start')
+    await requireCoordinator(config)
     to = `orca_session_id:${config.coordinator.sessionId}`
     const lines = [
       '[Coordinator Board · Delegated decision]',

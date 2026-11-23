@@ -40,6 +40,11 @@ assigns every agent session a lane:
 | `review` (To review) | finished with unread output |
 | `idle` | finished and seen, or its request was closed |
 
+For finished or waiting sessions, the reply that is checked for a question comes from the
+transcript (`orca agent read`): for chat sessions Orca's `lastAssistantMessage` is the first text
+block of the turn, not the final reply. Readings are cached per turn in
+`cache/final-replies.json`, at most eight new ones per refresh.
+
 Each session gets a **fingerprint** — a hash of its state, state start time, last reply, menu text
 and prompt. Cards store the fingerprint they were made from.
 
@@ -69,6 +74,13 @@ The CLI deliberately has **no** command that types into a terminal. Only the plu
 and only in response to a button press, so agents cannot answer other agents' prompts as if they
 were you.
 
+## Coordinator liveness
+
+A closed coordinator chat drops out of `orca agent list`, and orchestration mail to it is accepted
+but never read. `coord` checks the list before mailing the coordinator: requests stay queued
+(`coord request resend` after `coord coordinator start`), digests and delegated answers fail with
+`coordinator_closed`, and the board shows the state with a restart button.
+
 ## Mail identity
 
 Orca orchestration mail needs a sender. Inside an Orca terminal or chat, the caller has one. The
@@ -97,9 +109,10 @@ workspaces read.
 ## Plugin
 
 - The worker refreshes on Orca events (`agent.status.changed`, `workspace.created/removed`,
-  debounced) and every 45 seconds, posts the snapshot to open panels, updates the status bar and
+  debounced), every 10 seconds while a session is running (chat sessions send no status events)
+  and every 45 seconds otherwise, posts the snapshot to open panels, updates the status bar and
   raises desktop notifications for new urgent cards.
-- The Progress tab builds its kanban from the same snapshot: session lanes, `decision.answered`
+- The Kanban tab builds its board from the same snapshot: session lanes, `decision.answered`
   history entries (Follow-up, with the target session's current lane) and `done` requests (Done).
 - The panel has no logic beyond rendering and calling the worker. Panel strings are in
   `src/i18n.ts` and follow Orca's UI language; worker text follows the `language` setting.

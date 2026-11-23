@@ -15,12 +15,12 @@ import {
   Grid,
   Heading,
   IconButton,
+  Image,
   List,
   ListItem,
   Markdown,
   plugin,
   Progress,
-  RadioGroup,
   read,
   RelativeTime,
   Row,
@@ -59,8 +59,7 @@ const busy = atom({} as Record<string, boolean>)
 const notes = atom({} as Record<string, ActionResult>)
 const requestText = atom('request-draft', '', { persist: 'plugin' })
 const requestProject = atom('auto')
-const progressView = atom('progress-view', 'kanban', { persist: 'plugin' })
-const progressProject = atom('progress-project', 'all', { persist: 'plugin' })
+const kanbanProject = atom('kanban-project', 'all', { persist: 'plugin' })
 const expandedColumns = atom({} as Record<string, boolean>)
 const repos = atom<RepoRow[] | null>(null)
 const picked = atom<Record<string, boolean>>({})
@@ -120,6 +119,14 @@ async function loadRepos() {
 export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(plugin.on('board.snapshot', (s) => set(snapshot, s)))
   void load()
+  // Pulse the "needs you" mark only while it is on screen.
+  const timer = setInterval(() => {
+    const snap = read(snapshot)
+    if (!read(ctx.visible) || !snap?.ok || (snap.status.counts.human === 0 && snap.status.counts.decisions === 0)) return
+    update(pulse, (f) => (f + 1) % NEEDS_YOU_FRAMES)
+  }, PULSE_MS)
+  ;(timer as any).unref?.()
+  ctx.signal.addEventListener('abort', () => clearInterval(timer))
 }
 
 function cardReason(card: Card): string {
@@ -136,7 +143,7 @@ function DecisionCard({ card }: { card: Card }) {
   const priorityKey = (has(`priority.${card.priority}`) ? `priority.${card.priority}` : 'priority.undated') as Key
   const draft = draftFor(card)
   const reason = cardReason(card)
-  const openSession = () => act(key, () => plugin.request('session.open', { kind: target?.kind || 'terminal', handle: target?.handle || null, workspaceSelector: target?.workspaceSelector || '' }))
+  const openSession = () => act(key, () => plugin.request('session.open', { kind: target?.kind || 'terminal', handle: target?.handle || null, workspaceSelector: target?.workspaceSelector || '', path: target?.path || null }))
   return (
     <UiCard title={`${target?.project || '?'} · ${target?.workspace || ''}`} description={target ? `${target.title} · ${target.agent || target.kind} · ${target.state || ''}` : t(L, 'card.noSession')}>
       <Stack gap="sm">
@@ -249,16 +256,61 @@ function laneSummary(g: ProjectGroup, L: Lang): string {
     .join(' · ')
 }
 
+/**
+ * Animated marks for the two lanes that need attention. Running uses Orca's Spinner. Orca refuses
+ * animated images, so "needs you" cycles still frames (assets/needs-you-N.png, made by
+ * scripts/make-lane-marks.py) into a pulsing dot, only while the panel is visible.
+ */
+const LANE_MARK: Record<string, true> = { running: true, human: true }
+const NEEDS_YOU_FRAMES = 3
+const PULSE_MS = 350
+const pulse = atom(0)
+
+function LaneMark({ lane }: { lane: string }) {
+  const label = t(lang(), `lane.${lane}` as Key)
+  if (lane === 'running') return <Spinner label={label} labelHidden />
+  if (lane === 'human') {
+    // Image's smallest size is ~32px; a fixed 16px box keeps the dot level with the spinner.
+    return (
+      <Box width={16} height={16} shrink={false}>
+        <Image src={`assets/needs-you-${read(pulse)}.png`} alt={label} size="full" fit="contain" />
+      </Box>
+    )
+  }
+  return null
+}
+
+/** A list row: animated mark for running / needs-you sessions, the regular icon otherwise. */
+/** Called as a function (not a component) so its key stays on the ListItem in the parent's tree. */
+function laneRow({ k, lane, icon, title, description, onPress }: { k: string; lane: string; icon: IconName; title: string; description: string; onPress?: () => void }) {
+  if (!LANE_MARK[lane]) return <ListItem key={k} icon={icon} title={title} description={description} onPress={onPress} />
+  return (
+    <ListItem key={k} onPress={onPress}>
+      <Row gap="sm" align="center">
+        <LaneMark lane={lane} />
+        <Stack gap="none">
+          <Text truncate>{title}</Text>
+          <Text size="xs" muted truncate>
+            {description}
+          </Text>
+        </Stack>
+      </Row>
+    </ListItem>
+  )
+}
+
 function SessionItem({ s }: { s: SessionRow }) {
   const L = lang()
   const icon = s.lane === 'human' ? 'warning' : s.lane === 'running' ? 'play' : s.lane === 'review' ? 'check' : 'pause'
   return (
-    <ListItem
-      icon={icon}
-      title={s.title}
-      description={`${t(L, `lane.${s.lane}` as Key)} · ${s.agent || s.kind} · ${s.workspace}`}
-      onPress={() => act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector }))}
-    />
+    laneRow({
+      k: `p:${s.sessionId}`,
+      lane: s.lane,
+      icon,
+      title: s.title,
+      description: `${t(L, `lane.${s.lane}` as Key)} · ${s.agent || s.kind} · ${s.workspace}`,
+      onPress: () => void act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
+    })
   )
 }
 
@@ -290,10 +342,10 @@ const COLUMN_TONE: Record<Column, Tone> = { running: 'accent', review: 'warning'
 const LANE_ICON: Record<string, IconName> = { human: 'warning', running: 'play', review: 'check', idle: 'pause', unknown: 'info' }
 const COLUMN_LIMIT = 4
 
-type KanbanItem = { key: string; title: string; description: string; icon: IconName; onPress?: () => void }
+type KanbanItem = { key: string; title: string; description: string; icon: IconName; lane?: string; onPress?: () => void }
 
 function openSession(s: SessionRow) {
-  return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector }))
+  return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
 }
 
 /** Sessions by lane, plus answered decisions (follow-up) and verified requests (done). */
@@ -312,6 +364,7 @@ function kanbanColumns(snap: Extract<Snapshot, { ok: true }>, project: string, L
         title: s.title,
         description: [showProject ? g.project : null, s.agent || s.kind, s.workspace].filter(Boolean).join(' · '),
         icon: LANE_ICON[s.lane] || 'info',
+        lane: s.lane,
         onPress: () => void openSession(s)
       })
     }
@@ -353,14 +406,17 @@ function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
   return (
     <Box key={`col:${col}`} border radius="md" padding="sm" gap="xs" background="muted">
       <Row justify="between" align="center">
-        <Text size="sm" weight="semibold">
-          {label}
-        </Text>
+        <Row gap="xs" align="center">
+          <LaneMark lane={col} />
+          <Text size="sm" weight="semibold">
+            {label}
+          </Text>
+        </Row>
         <Badge tone={COLUMN_TONE[col]}>{String(items.length)}</Badge>
       </Row>
       <List label={label}>
         {shown.map((it) => (
-          <ListItem key={it.key} icon={it.icon} title={it.title} description={it.description} onPress={it.onPress} />
+          laneRow({ k: it.key, lane: it.lane || '', icon: it.icon, title: it.title, description: it.description, onPress: it.onPress })
         ))}
       </List>
       {items.length > COLUMN_LIMIT ? (
@@ -373,34 +429,21 @@ function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
 }
 
 function ProgressTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
+  return <ProjectList groups={snap.status.projects} />
+}
+
+function KanbanTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
   const L = lang()
-  const view = read(progressView)
   const groups = snap.status.projects
   const options = [{ value: 'all', label: t(L, 'progress.allProjects') }, ...groups.filter((g) => g.repoId).map((g) => ({ value: g.repoId, label: g.project }))]
-  const chosen = read(progressProject)
+  const chosen = read(kanbanProject)
   const project = options.some((o) => o.value === chosen) ? chosen : 'all'
-  const filtered = project === 'all' ? groups : groups.filter((g) => g.repoId === project)
   const cols = kanbanColumns(snap, project, L)
   const visible = KANBAN_ORDER.filter((c) => cols[c].length)
   return (
     <Stack gap="sm">
-      <Row gap="sm" wrap align="end">
-        <Select label={t(L, 'progress.project')} labelHidden value={project} options={options} onChange={(v) => set(progressProject, v)} />
-        <RadioGroup
-          label={t(L, 'progress.view')}
-          labelHidden
-          orientation="horizontal"
-          value={view}
-          options={[
-            { value: 'kanban', label: t(L, 'view.kanban') },
-            { value: 'projects', label: t(L, 'view.projects') }
-          ]}
-          onChange={(v) => set(progressView, v)}
-        />
-      </Row>
-      {view === 'projects' ? (
-        <ProjectList groups={filtered} />
-      ) : visible.length === 0 ? (
+      <Select label={t(L, 'progress.project')} labelHidden value={project} options={options} onChange={(v) => set(kanbanProject, v)} />
+      {visible.length === 0 ? (
         <EmptyState icon="folder" title={t(L, 'progress.empty.title')} description={t(L, 'progress.empty.body')} />
       ) : (
         <Grid minItemWidth="md" gap="sm">
@@ -430,7 +473,7 @@ function RequestTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
           <Button
             tone="accent"
             icon="next"
-            disabled={b || !text.trim() || !snap.status.coordinator}
+            disabled={b || !text.trim() || !snap.status.coordinator || snap.status.coordinator.state === 'closed'}
             tooltip={t(L, snap.status.coordinator ? 'request.tip' : 'digest.tip.off')}
             onPress={() =>
               act('request', async () => {
@@ -490,10 +533,19 @@ function SettingsTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
     <Stack gap="md">
       <Stack gap="xs">
         <Heading level={3}>{t(L, 'settings.coordinator')}</Heading>
-        {coord ? (
+        {coord && coord.state !== 'closed' ? (
           <Text size="sm">
             {coord.agent}/{coord.model} · {coord.state}
           </Text>
+        ) : coord ? (
+          <Stack gap="xs">
+            <Text size="sm" tone="danger">
+              {t(L, 'coordClosed.title')}
+            </Text>
+            <Button tone="accent" icon="bot" disabled={cb} onPress={() => act('coordinator', () => plugin.request('coordinator.start', undefined, { timeoutMs: 120_000 }))}>
+              {t(L, 'settings.restart')}
+            </Button>
+          </Stack>
         ) : (
           <Stack gap="xs">
             <Text size="sm" muted>
@@ -577,10 +629,19 @@ export default function Panel() {
       <Row justify="between" align="center">
         <Stack gap="none">
           <Heading level={2}>{t(L, 'title')}</Heading>
-          <Text size="xs" muted>
-            {t(L, 'summary.counts', { running: s.counts.running, review: s.counts.review })}
-            <RelativeTime at={Math.min(s.generatedAt, Date.now() - 1000)} />
-          </Text>
+          <Row gap="xs" align="center" wrap>
+            {s.counts.running > 0 ? <LaneMark lane="running" /> : null}
+            <Text size="xs" muted>
+              {t(L, 'summary.running', { n: s.counts.running })}
+            </Text>
+            <Text size="xs" muted>
+              ·
+            </Text>
+            {s.counts.decisions > 0 ? <LaneMark lane="human" /> : null}
+            <Text size="xs" muted>
+              {t(L, 'summary.decisions', { n: s.counts.decisions })} · {t(L, 'summary.review', { n: s.counts.review })} · <RelativeTime at={Math.min(s.generatedAt, Date.now() - 1000)} />
+            </Text>
+          </Row>
         </Stack>
         <IconButton icon="refresh" label={t(L, 'refresh')} disabled={isLoading} onPress={() => void load(true)} />
       </Row>
@@ -588,18 +649,25 @@ export default function Panel() {
         <Callout tone="warning" title={t(L, 'noCoordinator.title')}>
           <Text size="sm">{t(L, 'noCoordinator.body')}</Text>
         </Callout>
+      ) : s.coordinator.state === 'closed' ? (
+        <Callout tone="danger" title={t(L, 'coordClosed.title')}>
+          <Text size="sm">{t(L, 'coordClosed.body')}</Text>
+        </Callout>
       ) : null}
       <Tabs label={t(L, 'tabs.label')} value={current} onChange={(v) => set(tab, v)}>
-        <Tab value="decisions" label={t(L, 'tab.decisions', { n: s.counts.decisions })} icon="bell">
-          <DecisionsTab cards={s.decisions} hasCoordinator={Boolean(s.coordinator)} />
+        <Tab value="decisions" label={t(L, 'tab.decisions', { n: s.counts.decisions })}>
+          <DecisionsTab cards={s.decisions} hasCoordinator={Boolean(s.coordinator) && s.coordinator?.state !== 'closed'} />
         </Tab>
-        <Tab value="progress" label={t(L, 'tab.progress')} icon="activity">
+        <Tab value="progress" label={t(L, 'tab.progress')}>
           <ProgressTab snap={snap} />
         </Tab>
-        <Tab value="request" label={t(L, 'tab.requests')} icon="bot">
+        <Tab value="kanban" label={t(L, 'tab.kanban')}>
+          <KanbanTab snap={snap} />
+        </Tab>
+        <Tab value="request" label={t(L, 'tab.requests')}>
           <RequestTab snap={snap} />
         </Tab>
-        <Tab value="settings" label={t(L, 'tab.settings')} icon="settings">
+        <Tab value="settings" label={t(L, 'tab.settings')}>
           <SettingsTab snap={snap} />
         </Tab>
       </Tabs>

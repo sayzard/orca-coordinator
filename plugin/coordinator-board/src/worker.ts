@@ -12,6 +12,14 @@ const APP_ORCA = '/Applications/Orca.app/Contents/Resources/bin/orca'
 const REPO_COORD = fileURLToPath(new URL('../../../cli/coord.mjs', import.meta.url))
 const DEBOUNCE_MS = 3000
 const POLL_MS = 45_000
+// Chat sessions do not send agent status events, so poll faster while anything is running.
+const FAST_POLL_MS = 10_000
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+export function deactivate(): void {
+  if (pollTimer) clearTimeout(pollTimer)
+  pollTimer = null
+}
 
 type Envelope = { ok: true; result: any } | { ok: false; error: { code: string; message: string; data?: any } }
 
@@ -114,8 +122,17 @@ export default function activate(orca: OrcaWorkerApi): void {
       return snap
     })().finally(() => {
       inflight = null
+      schedulePoll()
     })
     return inflight
+  }
+
+  /** Next background refresh: sooner while sessions are running, so finished turns show up fast. */
+  function schedulePoll() {
+    if (pollTimer) clearTimeout(pollTimer)
+    const running = last?.ok ? last.status.counts.running : 0
+    pollTimer = setTimeout(() => void refresh(), running > 0 ? FAST_POLL_MS : POLL_MS)
+    ;(pollTimer as any).unref?.()
   }
 
   function schedule() {
@@ -126,7 +143,6 @@ export default function activate(orca: OrcaWorkerApi): void {
   orca.events.on('agent.status.changed', schedule)
   orca.events.on('workspace.created', schedule)
   orca.events.on('workspace.removed', schedule)
-  const poll = setInterval(() => void refresh(), POLL_MS)
   void refresh()
 
   orca.commands.register('coordinator-board.toggle', async () => {
@@ -196,11 +212,26 @@ export default function activate(orca: OrcaWorkerApi): void {
 
   orca.panels.handle('digest.request', async () => result(await coord(['digest']), () => ({ key: 'msg.digest' })))
 
-  orca.panels.handle('session.open', async ({ kind, handle, workspaceSelector }) => {
-    const env = kind === 'terminal' && handle?.startsWith('term_')
-      ? await orcaCli(['terminal', 'switch', '--terminal', handle, '--json'], 20_000)
-      : await orcaCli(['worktree', 'activate', '--worktree', workspaceSelector, '--json'], 20_000)
-    return result(env, () => ({ key: 'msg.opened' }))
+  orca.panels.handle('session.open', async ({ kind, handle, workspaceSelector, path }) => {
+    // A terminal session: switch straight to its pane.
+    if (kind === 'terminal' && handle?.startsWith('term_')) {
+      const env = await orcaCli(['terminal', 'switch', '--terminal', handle, '--json'], 20_000)
+      if (env.ok) return done('msg.opened')
+    }
+    // Chats and folder workspaces: the CLI cannot activate folders, but the host API can open any
+    // workspace in the desktop app. Find it by its folder path.
+    if (path) {
+      try {
+        const { workspaces } = await orca.host.call('workspace.list', {})
+        const match = workspaces.find((w) => w.path === path)
+        if (match) {
+          await orca.host.call('workspace.open', { workspaceId: match.id })
+          return done('msg.opened')
+        }
+      } catch {}
+    }
+    const env = await orcaCli(['worktree', 'activate', '--worktree', workspaceSelector, '--json'], 20_000)
+    return env.ok ? done('msg.opened') : { ok: false, code: 'open_failed', message: env.error.message }
   })
 
   orca.panels.handle('projects.list', async () => {
@@ -225,6 +256,4 @@ export default function activate(orca: OrcaWorkerApi): void {
     return result(env, (r) => ({ key: 'msg.coordinatorStarted', params: { model: `${r.agent}/${r.model}` } }))
   })
 
-  // Keep the poll from holding the worker open past deactivate.
-  ;(poll as any).unref?.()
 }

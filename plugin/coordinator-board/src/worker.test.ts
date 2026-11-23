@@ -140,3 +140,23 @@ test('auto language follows the board language from coord status', async () => {
   delete process.env.FAKE_COORD_LANGUAGE
   await worker.deactivate()
 })
+
+test('a chat in a folder workspace opens through the host API, by its folder path', async () => {
+  const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
+  process.env.FAKE_COORD_LOG = log
+  const host = mockHost({
+    settings: { coordPath: fake('fake-coord.mjs'), notify: false, language: 'en' },
+    results: {
+      'statusBar.update': { ok: true },
+      'notifications.show': { delivered: true },
+      'commands.run': { ran: true },
+      'workspace.list': { workspaces: [{ id: 'ws-other', kind: 'worktree', name: 'x', path: '/work/x', branch: 'main', hostId: 'local' }, { id: 'ws-bots', kind: 'folder', name: 'Bots', path: '/work/bots', branch: null, hostId: 'local' }], truncated: false },
+      'workspace.open': { opened: true }
+    }
+  })
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const r = await worker.request('session.open', { kind: 'chat', handle: 'orca_session_id:abc', workspaceSelector: 'folder:abc', path: '/work/bots' })
+  assert.equal(r.ok, true)
+  assert.deepEqual(host.callsOf('workspace.open'), [{ workspaceId: 'ws-bots' }])
+  await worker.deactivate()
+})

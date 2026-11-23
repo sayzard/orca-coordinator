@@ -45,6 +45,11 @@ function cleanMenuText(message) {
   return (message || '').replace(/^answer:\s*/i, '').trim().slice(0, 600)
 }
 
+/** The reply to judge: the transcript's final reply when known, else what Orca reported. */
+function replyOf(agent) {
+  return agent.finalReply || agent.lastAssistantMessage || ''
+}
+
 function attentionFor(agent) {
   const ps = agent.programStatus || {}
   // toolName keeps the last tool after the person answers, so a working agent is never waiting.
@@ -56,10 +61,10 @@ function attentionFor(agent) {
     return { kind, text, canReply: false }
   }
   if (agent.state === 'waiting') {
-    return { kind: 'question', text: detectQuestion(agent.lastAssistantMessage) || cleanMenuText(ps.message) || 'Waiting for input.', canReply: true }
+    return { kind: 'question', text: detectQuestion(replyOf(agent)) || cleanMenuText(ps.message) || 'Waiting for input.', canReply: true }
   }
   if (agent.state === 'done') {
-    const q = detectQuestion(agent.lastAssistantMessage)
+    const q = detectQuestion(replyOf(agent))
     if (q) return { kind: 'question', text: q, canReply: true }
   }
   return null
@@ -75,6 +80,38 @@ function laneFor(agent, attention) {
 function trim(text, n) {
   if (!text) return ''
   return text.length > n ? text.slice(0, n) + '…' : text
+}
+
+/** Turn key for a session: its final reply only changes when a new turn starts. */
+export function turnKey(agent) {
+  return `${agent.state || ''}:${agent.stateStartedAt || agent.updatedAt || ''}`
+}
+
+/** Sessions whose final reply should be read from the transcript (finished or waiting). */
+export function needsFinalReply(agent) {
+  return Boolean(agent.orcaSessionId) && (agent.state === 'done' || agent.state === 'waiting')
+}
+
+/**
+ * Orca's `lastAssistantMessage` can be the first text block of a turn (seen for chat sessions),
+ * so a question at the end of the real final reply is missed. Replace it with the final reply
+ * read from the transcript when that reading belongs to the same turn. It goes in `finalReply`, not
+ * over `lastAssistantMessage`, so card fingerprints do not change when the reading arrives.
+ * @param {object} ps result of `orca worktree ps --json`
+ * @param {Record<string, {key: string, text: string}>} finals sessionId -> final reply
+ */
+export function applyFinalReplies(ps, finals = {}) {
+  if (!ps?.worktrees) return ps
+  return {
+    ...ps,
+    worktrees: ps.worktrees.map((ws) => ({
+      ...ws,
+      agents: (ws.agents || []).map((a) => {
+        const f = finals[a.orcaSessionId]
+        return f && f.text && f.key === turnKey(a) ? { ...a, finalReply: f.text } : a
+      })
+    }))
+  }
 }
 
 /**
@@ -114,7 +151,7 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
         stateStartedAt: agent.stateStartedAt || null,
         toolName: agent.toolName || null,
         prompt: trim(agent.prompt, 600),
-        lastAssistantMessage: trim(agent.lastAssistantMessage, 2000),
+        lastAssistantMessage: trim(replyOf(agent), 2000),
         unread: Boolean(agent.activity?.unread),
         updatedAt: agent.updatedAt || ws.lastActivityAt || null,
         attention,

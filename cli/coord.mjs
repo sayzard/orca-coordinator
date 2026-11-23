@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import { loadConfig, saveConfig, GRADES, GRADE_LABELS, languageName } from './lib/config.mjs'
 import { buildStatus, loadSessions } from './lib/status.mjs'
 import { resolveRoute } from './lib/routing.mjs'
-import { readRateLimits, readInstalledAgents, readUsage } from './lib/data.mjs'
+import { readRateLimits, readInstalledAgents, readUsage, requireCoordinator } from './lib/data.mjs'
 import { addDecision, readDecisions, boardCards, dismissDecision, prepareTerminalAnswer, markDelivered, answerByMail } from './lib/decisions.mjs'
 import { createRequest, readRequests, updateRequestStatus, assign, resendRequest } from './lib/requests.mjs'
 import { ensureBoardHandle, sendAsBoard } from './lib/board.mjs'
@@ -275,7 +275,7 @@ async function main() {
       return fail('usage', 'coord decision add|list|answer|dismiss', json)
     }
     case 'digest': {
-      if (!config.coordinator?.sessionId) fail('no_coordinator', 'start one first: coord coordinator start', json)
+      await requireCoordinator(config)
       const receipt = await sendAsBoard(config, { to: `orca_session_id:${config.coordinator.sessionId}`, type: 'dispatch', subject: '[Digest] refresh the decision cards', bodyFile: tempFile('digest', DIGEST_PROMPT(values.project, config)) })
       return out({ messageId: receipt.messageId, sender: receipt.sender }, json, `Digest requested (${receipt.messageId}).`)
     }

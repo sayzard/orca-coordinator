@@ -1,15 +1,16 @@
 // One snapshot of the whole board: what the panel draws, what the bot reports, what the
 // coordinator reads at the start of a turn.
-import { deriveSessions, groupByProject, LANE_ORDER } from './lanes.mjs'
+import { applyFinalReplies, deriveSessions, groupByProject, LANE_ORDER } from './lanes.mjs'
 import { boardCards } from './decisions.mjs'
-import { readWorktrees, readAgentList, readUsage } from './data.mjs'
+import { readWorktrees, readAgentList, readUsage, readFinalReplies } from './data.mjs'
 import { readRequests, closedWorktrees } from './requests.mjs'
 import { readHistory } from './store.mjs'
 
 export async function loadSessions(config, { fresh = false } = {}) {
   const [ps, agentList] = await Promise.all([readWorktrees(config, { fresh }), readAgentList(config, { fresh }).catch(() => null)])
   const exclude = config.coordinator?.sessionId ? [config.coordinator.sessionId] : []
-  const sessions = deriveSessions(ps, { agentList, projects: config.projects || [], excludeSessions: exclude })
+  const finals = await readFinalReplies(ps).catch(() => ({}))
+  const sessions = deriveSessions(applyFinalReplies(ps, finals), { agentList, projects: config.projects || [], excludeSessions: exclude })
   const closed = closedWorktrees()
   // A finished, verified request's worker is not waiting for review any more.
   return sessions.map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
@@ -32,7 +33,8 @@ export async function buildStatus(config, { fresh = false, project = null } = {}
   if (config.coordinator?.sessionId) {
     const agents = (await readAgentList(config).catch(() => null))?.agents || []
     const row = agents.find((a) => a.orcaSessionId === config.coordinator.sessionId)
-    coordinator = { ...config.coordinator, state: row?.state || 'unknown', lastReply: (row?.lastAssistantMessage || '').slice(0, 400) }
+    // A closed chat is no longer listed; mail to it would be stored but never read.
+    coordinator = { ...config.coordinator, state: row ? row.state || 'unknown' : agents.length ? 'closed' : 'unknown', lastReply: (row?.lastAssistantMessage || '').slice(0, 400) }
   }
   return {
     generatedAt: Date.now(),

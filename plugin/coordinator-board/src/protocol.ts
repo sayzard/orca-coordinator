@@ -12,6 +12,8 @@ export type Target = {
   lane: string
   handle: string | null
   workspaceSelector: string
+  /** Workspace folder; used to open folder workspaces, which the CLI cannot activate. */
+  path?: string
 }
 
 export type Card = {
@@ -44,6 +46,7 @@ export type SessionRow = {
   workspace: string
   handle: string | null
   workspaceSelector: string
+  path?: string
 }
 
 export type ProjectGroup = {
@@ -87,7 +90,7 @@ declare module 'orca' {
     'decision.dismiss': { input: { id: string }; output: ActionResult }
     'request.send': { input: { text: string; project?: string | null }; output: ActionResult }
     'digest.request': { output: ActionResult }
-    'session.open': { input: { kind: string; handle: string | null; workspaceSelector: string }; output: ActionResult }
+    'session.open': { input: { kind: string; handle: string | null; workspaceSelector: string; path?: string | null }; output: ActionResult }
     'projects.list': { output: { ok: boolean; repos: RepoRow[]; message?: string } }
     'projects.set': { input: { ids: string[] }; output: ActionResult }
     'coordinator.start': { output: ActionResult }

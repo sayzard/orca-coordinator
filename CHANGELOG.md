@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Animated marks so running work and pending decisions stand out: a spinner before running
+  sessions and a pulsing red dot before sessions that need you, in the header counts, the Progress
+  list and the Kanban columns. Orca refuses animated images, so the dot cycles still frames
+  (`scripts/make-lane-marks.py`) only while the panel is visible.
+
+### Changed
+
+- The kanban board moved to its own Kanban tab, next to Progress. Progress shows the per-project
+  list again, and the project filter lives on the Kanban tab.
+
+### Fixed
+
+- [Open session] works for chats in folder workspaces, such as Orca Bot chats. The Orca CLI
+  cannot activate folder workspaces, so the board opens them through the plugin host API, matched
+  by folder path, and shows a clear message if that fails too.
+- The board refreshes every 10 seconds while any session is running (45 seconds otherwise). Chat
+  sessions send no agent status events, so a finished chat turn used to wait for the slow poll.
+- A closed coordinator chat is detected: the board says so and offers to start a new one, requests
+  are kept queued instead of being mailed to a chat nobody reads, and digests and delegated
+  answers are refused with `coordinator_closed`.
+- A chat session whose final reply ends with a question now shows up under "Needs you". Orca
+  reports the first text block of a chat turn as its last message, so the board now reads the
+  final reply from the transcript (`orca agent read`), once per turn and at most eight sessions
+  per refresh, most recent first. Card fingerprints still use Orca's own value, so cards don't go
+  stale when the reading arrives.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

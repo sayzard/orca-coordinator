@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "coordinator-board",
   "name": "Coordinator Board",
-  "version": "0.3.0",
+  "version": "0.3.4",
   "description": "One board for agent sessions across projects: \"My decisions\" cards with suggested replies, work requests for a coordinator agent, progress and usage.",
   "engines": {
     "orca": ">=1.4.248"

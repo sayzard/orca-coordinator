@@ -37,8 +37,8 @@ to Orca. Background and design notes: [docs/research.md](docs/research.md).
   (`orca account list`) or not installed.
 - **Requests from people and bots.** One entry point, `coord request`, for you (panel or
   terminal) and for an Orca Bot that collects work from Slack, GitHub, Linear or e-mail.
-- **Kanban board.** Running / To review / Needs you / Follow-up / Idle / Done columns across
-  projects, with a project filter; a per-project list is one click away. Finished, verified workers
+- **Progress and kanban.** A per-project list of sessions, and a Kanban tab with Running /
+  To review / Needs you / Follow-up / Idle / Done columns across projects and a project filter. Finished, verified workers
   are released so they stop asking for review.
 - **English and Korean UI.** The panel follows Orca's UI language; cards are written in the board
   language you set.
@@ -49,7 +49,7 @@ to Orca. Background and design notes: [docs/research.md](docs/research.md).
 |---|---|
 | [`cli/coord.mjs`](cli/coord.mjs) | The shared CLI. The person, the bot, the coordinator and the plugin all read and write the same state through it. Node ≥ 20, no dependencies. |
 | [`.claude/skills/orca-coordinator/`](.claude/skills/orca-coordinator/SKILL.md) | The coordinator's charter and procedures, grade criteria and card-writing guide. |
-| [`plugin/coordinator-board/`](plugin/coordinator-board) | Orca plugin: Decisions · Progress · Requests · Settings panel, status bar badge, notifications. |
+| [`plugin/coordinator-board/`](plugin/coordinator-board) | Orca plugin: Decisions · Progress · Kanban · Requests · Settings panel, status bar badge, notifications. |
 | [`bot/orca-bot-instructions.md`](bot/orca-bot-instructions.md) | Rules and automation examples for an Orca Bot that hands work to the coordinator. |
 | [`docs/`](docs) | Architecture and background research. |
 
@@ -93,8 +93,9 @@ notifications. It types into a terminal session only when you press [Send] on a 
   and post only the real decisions.
 - *Requests* — describe work under "Hand work to the coordinator"; it picks the project, grade and
   model and starts a worker in a new worktree.
-- *Progress* — a kanban of every session by lane, plus answered decisions (Follow-up) and
-  verified requests (Done); filter by project or switch to the per-project list.
+- *Progress* — sessions per project by lane.
+- *Kanban* — every session by lane, plus answered decisions (Follow-up) and verified requests
+  (Done); filter by project.
 - *Settings* — coordinator, usage, managed projects.
 
 **From an Orca Bot.** Add the block in [`bot/orca-bot-instructions.md`](bot/orca-bot-instructions.md)

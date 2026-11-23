@@ -5,7 +5,12 @@ import { appendFileSync } from 'node:fs'
 const args = process.argv.slice(2).filter((a) => a !== '--json')
 if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify(args) + '\n')
 const ok = (result) => console.log(JSON.stringify({ ok: true, result }))
-if (args[0] === 'terminal' && args[1] === 'show') ok({ terminal: { handle: 'term_board', connected: true, orphaned: false, paneTitle: 'Coordinator Board' } })
+if (args[0] === 'agent' && args[1] === 'list') {
+  ok({ agents: [{ orcaSessionId: 'coord-open', kind: 'chat', state: 'done' }] })
+} else if (args[0] === 'agent' && args[1] === 'read') {
+  // A chat turn: a first text block, a tool call, then the final reply ending in a question.
+  ok({ state: 'done', entries: [{ role: 'user', text: 'Tidy the tabs' }, { role: 'assistant', text: 'Looking at the panel first.' }, { kind: 'tool', role: null, text: '' }, { role: 'assistant', text: `Done for ${args[2]}.\n\nShall I commit and push it?` }] })
+} else if (args[0] === 'terminal' && args[1] === 'show') ok({ terminal: { handle: 'term_board', connected: true, orphaned: false, paneTitle: 'Coordinator Board' } })
 else if (args[0] === 'terminal' && args[1] === 'list') ok({ terminals: [{ handle: 'term_board', paneTitle: 'Coordinator Board' }] })
 else if (args[0] === 'orchestration' && args[1] === 'send' && args.includes('--from') && process.env.FAKE_FENCED === '1') {
   console.log(JSON.stringify({ ok: false, error: { code: 'consumer_fenced', message: 'This terminal is attested as term_bot and cannot act as term_board.' } }))

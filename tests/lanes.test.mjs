@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { deriveSessions, detectQuestion, groupByProject, fingerprint } from '../cli/lib/lanes.mjs'
+import { deriveSessions, detectQuestion, groupByProject, fingerprint, applyFinalReplies, turnKey } from '../cli/lib/lanes.mjs'
 
 const ps = JSON.parse(readFileSync(new URL('./fixtures/worktree-ps.json', import.meta.url), 'utf8'))
 const byId = (sessions) => Object.fromEntries(sessions.map((s) => [s.sessionId, s]))
@@ -83,4 +83,27 @@ test('projects are grouped with the ones needing the person first', () => {
   assert.equal(groups[0].project, 'alpha')
   assert.equal(groups[0].counts.human, 2)
   assert.equal(groups[1].counts.running, 1)
+})
+
+// Seen live: for a chat session Orca reported the first text block of the turn, so a question in
+// the real final reply was missed and the session showed as idle instead of "Needs you".
+test('a question in the final reply counts even when Orca reports an earlier text block', () => {
+  const clone = structuredClone(ps)
+  const chat = clone.worktrees[1].agents[2]
+  Object.assign(chat, { state: 'done', lastAssistantMessage: 'Looking at the panel first.', activity: { ...chat.activity, unread: false } })
+  assert.equal(byId(deriveSessions(clone))['sess-chat'].lane, 'idle')
+  const finals = { 'sess-chat': { key: turnKey(chat), text: 'Done.\n\nShall I commit and push it?' } }
+  const s = byId(deriveSessions(applyFinalReplies(clone, finals)))['sess-chat']
+  assert.equal(s.lane, 'human')
+  assert.equal(s.attention.text, 'Shall I commit and push it?')
+  // The card fingerprint does not move when the transcript reading arrives.
+  assert.equal(s.fingerprint, byId(deriveSessions(clone))['sess-chat'].fingerprint)
+})
+
+test('a final reply from an earlier turn is ignored', () => {
+  const clone = structuredClone(ps)
+  const chat = clone.worktrees[1].agents[2]
+  Object.assign(chat, { state: 'done', lastAssistantMessage: 'Looking at the panel first.', activity: { ...chat.activity, unread: false } })
+  const finals = { 'sess-chat': { key: 'done:1', text: 'Shall I push?' } }
+  assert.equal(byId(deriveSessions(applyFinalReplies(clone, finals)))['sess-chat'].lane, 'idle')
 })
