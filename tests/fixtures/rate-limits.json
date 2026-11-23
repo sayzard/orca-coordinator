@@ -1,0 +1,18 @@
+{
+  "claude": {
+    "provider": "claude",
+    "session": null,
+    "weekly": { "usedPercent": 4, "windowMinutes": 10080, "resetsAt": 4102444800000, "resetDescription": "Mon 3:00 PM" },
+    "fableWeekly": { "usedPercent": 90, "windowMinutes": 10080, "resetsAt": 4102444800000, "resetDescription": "Mon 3:00 PM" },
+    "status": "ok",
+    "planType": "max_20x"
+  },
+  "codex": {
+    "provider": "codex",
+    "session": { "usedPercent": 2, "windowMinutes": 300, "resetsAt": 4102444800000 },
+    "weekly": { "usedPercent": 68, "windowMinutes": 10080, "resetsAt": 4102444800000 },
+    "status": "ok",
+    "planType": "plus"
+  },
+  "gemini": { "provider": "gemini", "session": null, "weekly": null, "status": "unavailable", "error": "Gemini CLI OAuth is disabled in settings" }
+}

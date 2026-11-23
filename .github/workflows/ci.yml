@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: CLI tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax check
+        run: for f in cli/coord.mjs cli/lib/*.mjs tests/*.mjs; do node --check "$f"; done
+      - name: Unit tests
+        run: npm test
+
+  manifest:
+    name: Plugin manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manifest is valid JSON with required fields
+        run: |
+          node -e '
+            const m = require("./plugin/coordinator-board/orca-plugin.json")
+            for (const k of ["manifestVersion", "id", "name", "version", "execution", "main", "engines"]) {
+              if (!(k in m)) { console.error("missing " + k); process.exit(1) }
+            }
+            console.log(m.id + "@" + m.version)
+          '

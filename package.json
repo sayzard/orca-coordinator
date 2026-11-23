@@ -1,0 +1,45 @@
+{
+  "name": "orca-coordinator",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A coordinator layer for the Orca agent IDE: decision cards, work requests and grade-based model routing across many coding agents",
+  "keywords": [
+    "orca",
+    "orca-plugin",
+    "ai-agents",
+    "coding-agents",
+    "coordinator",
+    "orchestration",
+    "claude-code",
+    "codex"
+  ],
+  "homepage": "https://github.com/sayzard/orca-coordinator#readme",
+  "bugs": {
+    "url": "https://github.com/sayzard/orca-coordinator/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sayzard/orca-coordinator.git"
+  },
+  "license": "MIT",
+  "author": "sayzard (https://github.com/sayzard)",
+  "type": "module",
+  "bin": {
+    "coord": "cli/coord.mjs"
+  },
+  "files": [
+    "cli/",
+    "plugin/coordinator-board/",
+    ".claude/skills/orca-coordinator/",
+    "bot/",
+    "docs/"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:plugin": "orca plugin test plugin/coordinator-board --json",
+    "check:plugin": "orca plugin check plugin/coordinator-board --json"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

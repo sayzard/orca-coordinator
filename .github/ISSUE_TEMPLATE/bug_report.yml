@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in the board, the CLI or the coordinator does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please remove personal data (names, e-mail addresses, private project names, paths) from logs before pasting.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. coord request "..."
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Output of the failing `coord ... --json` command or `orca plugin logs local.coordinator-board --json`.
+      render: shell
+  - type: input
+    id: orca
+    attributes:
+      label: Orca version
+      placeholder: "orca --version → 1.4.271"
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "node --version → v22.x"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - coord CLI
+        - Plugin panel / status bar
+        - Coordinator behavior (skill)
+        - Orca Bot handoff
+        - Docs
+        - Other

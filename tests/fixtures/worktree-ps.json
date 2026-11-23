@@ -1,0 +1,508 @@
+{
+ "worktrees": [
+  {
+   "workspaceKind": "git",
+   "worktreeId": "repo-alpha::/work/alpha",
+   "repoId": "repo-alpha",
+   "hostId": "local",
+   "identity": {
+    "key": "wt2:local:repo-alp",
+    "executionHostId": "local",
+    "instanceId": "repo-alpha"
+   },
+   "terminalPlatform": "darwin",
+   "repo": "alpha",
+   "path": "/work/alpha",
+   "branch": "refs/heads/main",
+   "isArchived": false,
+   "isMainWorktree": true,
+   "hasHostSidebarActivity": true,
+   "defaultBranch": true,
+   "worktreeInstanceId": "3a821ede-349c-4313-a813-e5e4ed2e86c0",
+   "parentWorktreeId": null,
+   "childWorktreeIds": [],
+   "displayName": "main",
+   "workspaceStatus": "in-progress",
+   "sortOrder": 1795426569930,
+   "lastActivityAt": 1795426676685,
+   "linkedIssue": null,
+   "linkedPR": null,
+   "linkedLinearIssue": null,
+   "linkedGitLabMR": null,
+   "linkedGitLabIssue": null,
+   "linkedItems": [],
+   "comment": "",
+   "isPinned": false,
+   "isActive": false,
+   "unread": true,
+   "liveTerminalCount": 2,
+   "hasAttachedPty": true,
+   "unverifiableTerminalCount": 0,
+   "lastOutputAt": 1795426726728,
+   "preview": "",
+   "status": "permission",
+   "agents": [
+    {
+     "paneKey": "tab-menu:leaf-1",
+     "address": "term_menu-0001",
+     "orcaSessionId": "sess-menu",
+     "parentPaneKey": null,
+     "state": "waiting",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Ask whether to fix the README typo",
+     "lastAssistantMessage": null,
+     "toolName": "AskUserQuestion",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "waiting",
+      "stateStartedAt": 1795426676673
+     },
+     "stateStartedAt": 1795426676673,
+     "updatedAt": 1795426676708,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "blocked",
+      "kind": "question",
+      "message": "answer: Line 3 of README.md, \"Teh quick brown fox.\", has a typo (\"Teh\" → \"The\"). Fix it? (Yes · No)",
+      "observedAt": 1795426676704
+     },
+     "activity": {
+      "listed": true,
+      "status": "waiting",
+      "unread": true,
+      "clearable": false,
+      "sortAt": 1795426676673,
+      "title": "Ask whether to fix the README typo"
+     },
+     "agentWait": {
+      "source": "hook",
+      "since": 1795426676708
+     }
+    },
+    {
+     "paneKey": "tab-done:leaf-1",
+     "address": "term_done-0002",
+     "orcaSessionId": "sess-done-unread",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "Fixed the README typo. All tests pass.",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426725694,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": true,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Check curl headers"
+     },
+     "agentWait": null
+    },
+    {
+     "paneKey": "tab-q:leaf-1",
+     "address": "term_q-0003",
+     "orcaSessionId": "sess-question",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "I listed two options.\n\n1. Blue-green\n2. Canary\n\nWhich one should I go with?",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426700000,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": true,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Deployment strategy"
+     },
+     "agentWait": null
+    }
+   ],
+   "sidebarStatus": "permission",
+   "terminalVerdict": "live",
+   "address": {
+    "environment": "local",
+    "worktree": "identity:wt2:local:repo-alp",
+    "line": ""
+   }
+  },
+  {
+   "workspaceKind": "git",
+   "worktreeId": "repo-beta::/work/beta",
+   "repoId": "repo-beta",
+   "hostId": "local",
+   "identity": {
+    "key": "wt2:local:repo-bet",
+    "executionHostId": "local",
+    "instanceId": "repo-beta"
+   },
+   "terminalPlatform": "darwin",
+   "repo": "beta",
+   "path": "/work/beta",
+   "branch": "refs/heads/main",
+   "isArchived": false,
+   "isMainWorktree": true,
+   "hasHostSidebarActivity": true,
+   "defaultBranch": true,
+   "worktreeInstanceId": "3a821ede-349c-4313-a813-e5e4ed2e86c0",
+   "parentWorktreeId": null,
+   "childWorktreeIds": [],
+   "displayName": "main",
+   "workspaceStatus": "in-progress",
+   "sortOrder": 1795426569930,
+   "lastActivityAt": 1795426676685,
+   "linkedIssue": null,
+   "linkedPR": null,
+   "linkedLinearIssue": null,
+   "linkedGitLabMR": null,
+   "linkedGitLabIssue": null,
+   "linkedItems": [],
+   "comment": "",
+   "isPinned": false,
+   "isActive": false,
+   "unread": true,
+   "liveTerminalCount": 2,
+   "hasAttachedPty": true,
+   "unverifiableTerminalCount": 0,
+   "lastOutputAt": 1795426726728,
+   "preview": "",
+   "status": "permission",
+   "agents": [
+    {
+     "paneKey": "tab-w:leaf-1",
+     "address": "term_w-0004",
+     "orcaSessionId": "sess-working",
+     "parentPaneKey": null,
+     "state": "working",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "working",
+      "stateStartedAt": 1795426800000
+     },
+     "stateStartedAt": 1795426800000,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "working",
+      "observedAt": 1795426800000
+     },
+     "activity": {
+      "listed": true,
+      "status": "working",
+      "unread": true,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "API refactor"
+     },
+     "agentWait": null
+    },
+    {
+     "paneKey": "tab-i:leaf-1",
+     "address": "term_i-0005",
+     "orcaSessionId": "sess-idle",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "Tidied up the docs.",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426725694,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": false,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Docs cleanup"
+     },
+     "agentWait": null
+    },
+    {
+     "paneKey": null,
+     "address": "structured-agent-session-sess-chat",
+     "orcaSessionId": "sess-chat",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "Shall I open a PR for this change?",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426725694,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": true,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Chat question"
+     },
+     "agentWait": null
+    }
+   ],
+   "sidebarStatus": "permission",
+   "terminalVerdict": "live",
+   "address": {
+    "environment": "local",
+    "worktree": "identity:wt2:local:repo-bet",
+    "line": ""
+   }
+  },
+  {
+   "workspaceKind": "git",
+   "worktreeId": "repo-coord::/work/orca-coordinator",
+   "repoId": "repo-coord",
+   "hostId": "local",
+   "identity": {
+    "key": "wt2:local:repo-coo",
+    "executionHostId": "local",
+    "instanceId": "repo-coord"
+   },
+   "terminalPlatform": "darwin",
+   "repo": "orca-coordinator",
+   "path": "/work/orca-coordinator",
+   "branch": "refs/heads/main",
+   "isArchived": false,
+   "isMainWorktree": true,
+   "hasHostSidebarActivity": true,
+   "defaultBranch": true,
+   "worktreeInstanceId": "3a821ede-349c-4313-a813-e5e4ed2e86c0",
+   "parentWorktreeId": null,
+   "childWorktreeIds": [],
+   "displayName": "main",
+   "workspaceStatus": "in-progress",
+   "sortOrder": 1795426569930,
+   "lastActivityAt": 1795426676685,
+   "linkedIssue": null,
+   "linkedPR": null,
+   "linkedLinearIssue": null,
+   "linkedGitLabMR": null,
+   "linkedGitLabIssue": null,
+   "linkedItems": [],
+   "comment": "",
+   "isPinned": false,
+   "isActive": false,
+   "unread": true,
+   "liveTerminalCount": 2,
+   "hasAttachedPty": true,
+   "unverifiableTerminalCount": 0,
+   "lastOutputAt": 1795426726728,
+   "preview": "",
+   "status": "permission",
+   "agents": [
+    {
+     "paneKey": "tab-i:leaf-1",
+     "address": "structured-agent-session-sess-coordinator",
+     "orcaSessionId": "sess-coordinator",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "Tidied up the docs.",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426725694,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": true,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Coordinator"
+     },
+     "agentWait": null
+    }
+   ],
+   "sidebarStatus": "permission",
+   "terminalVerdict": "live",
+   "address": {
+    "environment": "local",
+    "worktree": "identity:wt2:local:repo-coo",
+    "line": ""
+   }
+  },
+  {
+   "workspaceKind": "git",
+   "worktreeId": "repo-old::/work/old",
+   "repoId": "repo-old",
+   "hostId": "local",
+   "identity": {
+    "key": "wt2:local:repo-old",
+    "executionHostId": "local",
+    "instanceId": "repo-old"
+   },
+   "terminalPlatform": "darwin",
+   "repo": "old",
+   "path": "/work/old",
+   "branch": "refs/heads/main",
+   "isArchived": true,
+   "isMainWorktree": true,
+   "hasHostSidebarActivity": true,
+   "defaultBranch": true,
+   "worktreeInstanceId": "3a821ede-349c-4313-a813-e5e4ed2e86c0",
+   "parentWorktreeId": null,
+   "childWorktreeIds": [],
+   "displayName": "main",
+   "workspaceStatus": "in-progress",
+   "sortOrder": 1795426569930,
+   "lastActivityAt": 1795426676685,
+   "linkedIssue": null,
+   "linkedPR": null,
+   "linkedLinearIssue": null,
+   "linkedGitLabMR": null,
+   "linkedGitLabIssue": null,
+   "linkedItems": [],
+   "comment": "",
+   "isPinned": false,
+   "isActive": false,
+   "unread": true,
+   "liveTerminalCount": 2,
+   "hasAttachedPty": true,
+   "unverifiableTerminalCount": 0,
+   "lastOutputAt": 1795426726728,
+   "preview": "",
+   "status": "permission",
+   "agents": [
+    {
+     "paneKey": "tab-i:leaf-1",
+     "address": "term_i-0005",
+     "orcaSessionId": "sess-idle",
+     "parentPaneKey": null,
+     "state": "done",
+     "agentType": "claude",
+     "prompt": "test prompt",
+     "taskTitle": null,
+     "displayName": null,
+     "conversationName": "Check curl headers",
+     "lastAssistantMessage": "Tidied up the docs.",
+     "toolName": "Bash",
+     "toolInput": null,
+     "interrupted": false,
+     "mainAgent": {
+      "state": "done",
+      "stateStartedAt": 1795426725694
+     },
+     "stateStartedAt": 1795426725694,
+     "updatedAt": 1795426726714,
+     "hasLivePty": true,
+     "programStatus": {
+      "state": "done",
+      "observedAt": 1795426725795
+     },
+     "activity": {
+      "listed": true,
+      "status": "done",
+      "unread": false,
+      "clearable": true,
+      "sortAt": 1795426725694,
+      "title": "Docs cleanup"
+     },
+     "agentWait": null
+    }
+   ],
+   "sidebarStatus": "permission",
+   "terminalVerdict": "live",
+   "address": {
+    "environment": "local",
+    "worktree": "identity:wt2:local:repo-old",
+    "line": ""
+   }
+  }
+ ],
+ "hostScope": {
+  "hostIds": [
+   "local"
+  ]
+ },
+ "totalCount": 4,
+ "truncated": false
+}

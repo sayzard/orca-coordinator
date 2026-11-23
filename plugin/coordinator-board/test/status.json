@@ -1,0 +1,392 @@
+{
+ "generatedAt": 1795430000000,
+ "managedProjects": [],
+ "coordinator": {
+  "sessionId": "sess-coordinator",
+  "agent": "claude",
+  "model": "claude-opus-5-5",
+  "state": "done",
+  "lastReply": "Standing by."
+ },
+ "counts": {
+  "decisions": 3,
+  "human": 3,
+  "running": 1,
+  "review": 1,
+  "idle": 1,
+  "unknown": 0,
+  "sessions": 6
+ },
+ "decisions": [
+  {
+   "id": "auto:sess-menu",
+   "source": "auto",
+   "sessionId": "sess-menu",
+   "question": "Line 3 of README.md, \"Teh quick brown fox.\", has a typo (\"Teh\" → \"The\"). Fix it? (Yes · No)",
+   "recommendation": "",
+   "reason": "A menu is open in the session. Pick an option there.",
+   "reasonKey": "auto.menu",
+   "options": [],
+   "needsInput": "",
+   "priority": "menu",
+   "canReply": false,
+   "status": "open",
+   "createdAt": 1795426676673,
+   "evidence": {
+    "state": "waiting",
+    "stateStartedAt": 1795426676673,
+    "fingerprint": "e6e5fbb072d4a355"
+   },
+   "target": {
+    "sessionId": "sess-menu",
+    "kind": "terminal",
+    "agent": "claude",
+    "project": "alpha",
+    "workspace": "main",
+    "title": "Ask whether to fix the README typo",
+    "state": "waiting",
+    "lane": "human",
+    "handle": "term_menu-0001",
+    "workspaceSelector": "identity:wt2:local:repo-alp"
+   },
+   "stale": false
+  },
+  {
+   "id": "auto:sess-chat",
+   "source": "auto",
+   "sessionId": "sess-chat",
+   "question": "Shall I open a PR for this change?",
+   "recommendation": "",
+   "reason": "The last reply ends with a question. Request a digest for a suggested reply.",
+   "reasonKey": "auto.question",
+   "options": [],
+   "needsInput": "",
+   "priority": "reply",
+   "canReply": true,
+   "status": "open",
+   "createdAt": 1795426725694,
+   "evidence": {
+    "state": "done",
+    "stateStartedAt": 1795426725694,
+    "fingerprint": "b16f9c80ec18c7ea"
+   },
+   "target": {
+    "sessionId": "sess-chat",
+    "kind": "chat",
+    "agent": "claude",
+    "project": "beta",
+    "workspace": "main",
+    "title": "Chat question",
+    "state": "done",
+    "lane": "human",
+    "handle": "structured-agent-session-sess-chat",
+    "workspaceSelector": "identity:wt2:local:repo-bet"
+   },
+   "stale": false
+  },
+  {
+   "id": "dec_mwt4c5m85877da",
+   "source": "coordinator",
+   "sessionId": "sess-question",
+   "question": "Deploy with blue-green or canary?",
+   "recommendation": "Go canary starting at 10%, and roll back automatically if the error rate passes 1%.",
+   "reason": "Rollback is cheaper and the last release used canary",
+   "options": [
+    {
+     "label": "Canary",
+     "reply": "Go canary starting at 10%, please."
+    },
+    {
+     "label": "Blue-green",
+     "reply": "Switch with blue-green, please."
+    }
+   ],
+   "needsInput": "",
+   "priority": "today",
+   "askMessageId": null,
+   "dispatchId": null,
+   "canReply": true,
+   "status": "open",
+   "revision": 1,
+   "createdAt": 1795429449584,
+   "updatedAt": 1795429449584,
+   "evidence": {
+    "state": "done",
+    "stateStartedAt": 1795426700000,
+    "fingerprint": "4e4523fb332c405d"
+   },
+   "target": {
+    "sessionId": "sess-question",
+    "kind": "terminal",
+    "agent": "claude",
+    "project": "alpha",
+    "workspace": "main",
+    "title": "Deployment strategy",
+    "state": "done",
+    "lane": "human",
+    "handle": "term_q-0003",
+    "workspaceSelector": "identity:wt2:local:repo-alp"
+   },
+   "stale": false
+  }
+ ],
+ "projects": [
+  {
+   "repoId": "repo-alpha",
+   "project": "alpha",
+   "counts": {
+    "human": 2,
+    "running": 0,
+    "review": 1,
+    "idle": 0,
+    "unknown": 0
+   },
+   "sessions": [
+    {
+     "sessionId": "sess-done-unread",
+     "kind": "terminal",
+     "agent": "claude",
+     "worktreeId": "repo-alpha::/work/alpha",
+     "repoId": "repo-alpha",
+     "project": "alpha",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-alp",
+     "path": "/work/alpha",
+     "paneKey": "tab-done:leaf-1",
+     "handle": "term_done-0002",
+     "title": "Check curl headers",
+     "state": "done",
+     "stateStartedAt": 1795426725694,
+     "toolName": "Bash",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "Fixed the README typo. All tests pass.",
+     "unread": true,
+     "updatedAt": 1795426726714,
+     "attention": null,
+     "lane": "review",
+     "fingerprint": "6f9cf2e65cba7587"
+    },
+    {
+     "sessionId": "sess-question",
+     "kind": "terminal",
+     "agent": "claude",
+     "worktreeId": "repo-alpha::/work/alpha",
+     "repoId": "repo-alpha",
+     "project": "alpha",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-alp",
+     "path": "/work/alpha",
+     "paneKey": "tab-q:leaf-1",
+     "handle": "term_q-0003",
+     "title": "Deployment strategy",
+     "state": "done",
+     "stateStartedAt": 1795426700000,
+     "toolName": "Bash",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "I listed two options.\n\n1. Blue-green\n2. Canary\n\nWhich one should I go with?",
+     "unread": true,
+     "updatedAt": 1795426726714,
+     "attention": {
+      "kind": "question",
+      "text": "Which one should I go with?",
+      "canReply": true
+     },
+     "lane": "human",
+     "fingerprint": "4e4523fb332c405d"
+    },
+    {
+     "sessionId": "sess-menu",
+     "kind": "terminal",
+     "agent": "claude",
+     "worktreeId": "repo-alpha::/work/alpha",
+     "repoId": "repo-alpha",
+     "project": "alpha",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-alp",
+     "path": "/work/alpha",
+     "paneKey": "tab-menu:leaf-1",
+     "handle": "term_menu-0001",
+     "title": "Ask whether to fix the README typo",
+     "state": "waiting",
+     "stateStartedAt": 1795426676673,
+     "toolName": "AskUserQuestion",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "",
+     "unread": true,
+     "updatedAt": 1795426676708,
+     "attention": {
+      "kind": "menu",
+      "text": "Line 3 of README.md, \"Teh quick brown fox.\", has a typo (\"Teh\" → \"The\"). Fix it? (Yes · No)",
+      "canReply": false
+     },
+     "lane": "human",
+     "fingerprint": "e6e5fbb072d4a355"
+    }
+   ]
+  },
+  {
+   "repoId": "repo-beta",
+   "project": "beta",
+   "counts": {
+    "human": 1,
+    "running": 1,
+    "review": 0,
+    "idle": 1,
+    "unknown": 0
+   },
+   "sessions": [
+    {
+     "sessionId": "sess-working",
+     "kind": "terminal",
+     "agent": "claude",
+     "worktreeId": "repo-beta::/work/beta",
+     "repoId": "repo-beta",
+     "project": "beta",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-bet",
+     "path": "/work/beta",
+     "paneKey": "tab-w:leaf-1",
+     "handle": "term_w-0004",
+     "title": "API refactor",
+     "state": "working",
+     "stateStartedAt": 1795426800000,
+     "toolName": "Bash",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "",
+     "unread": true,
+     "updatedAt": 1795426726714,
+     "attention": null,
+     "lane": "running",
+     "fingerprint": "b611f7b5f576064f"
+    },
+    {
+     "sessionId": "sess-idle",
+     "kind": "terminal",
+     "agent": "claude",
+     "worktreeId": "repo-beta::/work/beta",
+     "repoId": "repo-beta",
+     "project": "beta",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-bet",
+     "path": "/work/beta",
+     "paneKey": "tab-i:leaf-1",
+     "handle": "term_i-0005",
+     "title": "Docs cleanup",
+     "state": "done",
+     "stateStartedAt": 1795426725694,
+     "toolName": "Bash",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "Tidied up the docs.",
+     "unread": false,
+     "updatedAt": 1795426726714,
+     "attention": null,
+     "lane": "idle",
+     "fingerprint": "7a3a66cff4a83eab"
+    },
+    {
+     "sessionId": "sess-chat",
+     "kind": "chat",
+     "agent": "claude",
+     "worktreeId": "repo-beta::/work/beta",
+     "repoId": "repo-beta",
+     "project": "beta",
+     "workspace": "main",
+     "workspaceSelector": "identity:wt2:local:repo-bet",
+     "path": "/work/beta",
+     "paneKey": null,
+     "handle": "structured-agent-session-sess-chat",
+     "title": "Chat question",
+     "state": "done",
+     "stateStartedAt": 1795426725694,
+     "toolName": "Bash",
+     "prompt": "test prompt",
+     "lastAssistantMessage": "Shall I open a PR for this change?",
+     "unread": true,
+     "updatedAt": 1795426726714,
+     "attention": {
+      "kind": "question",
+      "text": "Shall I open a PR for this change?",
+      "canReply": true
+     },
+     "lane": "human",
+     "fingerprint": "b16f9c80ec18c7ea"
+    }
+   ]
+  }
+ ],
+ "requests": [
+  {
+   "id": "req_1",
+   "text": "Find out why login fails",
+   "status": "assigned",
+   "source": "bot:triage",
+   "createdAt": 1795420000000,
+   "assignments": [
+    {
+     "agent": "claude",
+     "model": "claude-opus-5-5",
+     "grade": "C"
+    }
+   ]
+  }
+ ],
+ "usage": [
+  {
+   "provider": "claude",
+   "status": "ok",
+   "plan": "max_20x",
+   "windows": [
+    {
+     "id": "weekly",
+     "usedPercent": 4,
+     "resetsAt": 4102444800000,
+     "resetDescription": "Mon 3:00 PM"
+    },
+    {
+     "id": "fableWeekly",
+     "usedPercent": 90,
+     "resetsAt": 4102444800000,
+     "resetDescription": "Mon 3:00 PM"
+    }
+   ],
+   "error": null
+  },
+  {
+   "provider": "codex",
+   "status": "ok",
+   "plan": "plus",
+   "windows": [
+    {
+     "id": "session",
+     "usedPercent": 2,
+     "resetsAt": 4102444800000,
+     "resetDescription": null
+    },
+    {
+     "id": "weekly",
+     "usedPercent": 68,
+     "resetsAt": 4102444800000,
+     "resetDescription": null
+    }
+   ],
+   "error": null
+  },
+  {
+   "provider": "gemini",
+   "status": "unavailable",
+   "plan": null,
+   "windows": [],
+   "error": "Gemini CLI OAuth is disabled in settings"
+  }
+ ],
+ "history": [
+  {
+   "at": 1795425000000,
+   "type": "decision.answered",
+   "question": "Fix the README typo?",
+   "answer": "Yes",
+   "via": "terminal",
+   "project": "alpha"
+  }
+ ]
+}
