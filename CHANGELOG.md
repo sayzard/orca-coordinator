@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A session whose turn has ended while a background shell keeps running ("monitoring") is no
+  longer shown as running: the board uses the main agent's state, so a question at the end of
+  that turn appears under "Needs you".
+- More ways of asking the person to decide are detected, e.g. Korean "정해/골라/알려/말씀해 …
+  주시면 · 주세요 · 주십시오" and English "tell me whether…", "which would you prefer".
+
 ## [0.3.4] - 2026-11-23
 
 ### Added

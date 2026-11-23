@@ -51,7 +51,7 @@ test('a working agent whose last tool was AskUserQuestion is running, not waitin
   // Seen live: after the person answers a menu, toolName stays AskUserQuestion while it works.
   const clone = structuredClone(ps)
   const a = clone.worktrees[0].agents[0]
-  Object.assign(a, { state: 'working', agentWait: null, programStatus: { state: 'done' }, toolName: 'AskUserQuestion' })
+  Object.assign(a, { state: 'working', mainAgent: { state: 'working', stateStartedAt: 1795426900000 }, agentWait: null, programStatus: { state: 'done' }, toolName: 'AskUserQuestion' })
   const s = byId(deriveSessions(clone))
   assert.equal(s['sess-menu'].lane, 'running')
   assert.equal(s['sess-menu'].attention, null)
@@ -106,4 +106,31 @@ test('a final reply from an earlier turn is ignored', () => {
   Object.assign(chat, { state: 'done', lastAssistantMessage: 'Looking at the panel first.', activity: { ...chat.activity, unread: false } })
   const finals = { 'sess-chat': { key: 'done:1', text: 'Shall I push?' } }
   assert.equal(byId(deriveSessions(applyFinalReplies(clone, finals)))['sess-chat'].lane, 'idle')
+})
+
+test('more ways of asking the person to decide are detected', () => {
+  assert.equal(detectQuestion('Two options above.\nWhich would you prefer.'), 'Which would you prefer.')
+  assert.equal(detectQuestion('Done.\nTell me whether to keep the old flag.'), 'Tell me whether to keep the old flag.')
+  assert.equal(detectQuestion('정리했습니다.\n어느 쪽으로 할지 정해 주시면 이어서 작업하겠습니다.\n\n보고서는 Reports/README.md에 저장했습니다.'), '어느 쪽으로 할지 정해 주시면 이어서 작업하겠습니다.')
+  assert.equal(detectQuestion('필요하면 말씀해 주세요'), '필요하면 말씀해 주세요')
+  assert.equal(detectQuestion('테스트를 모두 통과했고 커밋했습니다.'), null)
+})
+
+// Seen live: a background shell kept the session "working" (monitoring) after the agent's turn
+// ended with a question, so the board showed it as running instead of "Needs you".
+test('a finished turn with a background shell still running counts as done', () => {
+  const clone = structuredClone(ps)
+  const a = clone.worktrees[1].agents[0]
+  Object.assign(a, {
+    state: 'working',
+    stateStartedAt: 1795426800000,
+    mainAgent: { state: 'done', stateStartedAt: 1795435535871 },
+    programStatus: { state: 'done' },
+    lastAssistantMessage: 'Two next steps.\n\nTell me whether to start with the generator or the layout copy, and I will continue.\n\nThe full report is in Reports/README.md.'
+  })
+  const s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.lane, 'human')
+  assert.equal(s.background, true)
+  assert.match(s.attention.text, /^Tell me whether/)
+  assert.equal(turnKey(a), 'done:1795435535871')
 })

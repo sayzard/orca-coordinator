@@ -9,9 +9,11 @@ import { createHash } from 'node:crypto'
 
 const QUESTION_PATTERNS = [
   /\?\s*$/,
-  // Korean request phrases ("shall I…?", "please confirm/choose/let me know/approve").
-  /할까요|하시겠|원하시|괜찮을까|좋을까요|어떨까요|선택해\s*주|알려\s*주세요|확인해\s*주|결정해\s*주|어떻게\s*할|진행할까|승인해\s*주|답해\s*주/,
-  /\b(shall i|should i|would you like|do you want|please confirm|let me know|which (one|option)|can you confirm|okay to proceed)\b/i
+  // Korean questions ("shall I…?", "which way…?").
+  /할까요|하시겠|원하시|괜찮을까|좋을까요|어떨까요|어떻게\s*할|진행할까|어느\s*(쪽|것|안)으로/,
+  // Korean requests to decide or reply: "정해/골라/알려/말씀해/선택해/결정해/… 주세요 · 주시면 · 주십시오".
+  /(정해|골라|알려|말씀해|선택해|결정해|확인해|승인해|답해|지정해|판단해|검토해)\s*주(세요|시면|십시오|실래요|시겠어요|시겠습니까|시길)/,
+  /\b(shall i|should i|would you like|do you want|please confirm|let me know|tell me (which|whether|if)|which (one|option|would you)|can you confirm|okay to proceed|your call|up to you)\b/i
 ]
 
 /** Returns the last line of `text` that reads as a question to the person, or null. */
@@ -82,14 +84,28 @@ function trim(text, n) {
   return text.length > n ? text.slice(0, n) + '…' : text
 }
 
+/**
+ * Orca keeps a session `working` ("monitoring") while a background shell runs, even after the
+ * agent's turn has ended; `mainAgent.state` says whether the agent itself is done or waiting.
+ */
+export function effectiveAgent(agent) {
+  const main = agent.mainAgent
+  if (agent.state === 'working' && main && (main.state === 'done' || main.state === 'waiting')) {
+    return { ...agent, state: main.state, stateStartedAt: main.stateStartedAt || agent.stateStartedAt, background: true }
+  }
+  return agent
+}
+
 /** Turn key for a session: its final reply only changes when a new turn starts. */
 export function turnKey(agent) {
-  return `${agent.state || ''}:${agent.stateStartedAt || agent.updatedAt || ''}`
+  const a = effectiveAgent(agent)
+  return `${a.state || ''}:${a.stateStartedAt || a.updatedAt || ''}`
 }
 
 /** Sessions whose final reply should be read from the transcript (finished or waiting). */
 export function needsFinalReply(agent) {
-  return Boolean(agent.orcaSessionId) && (agent.state === 'done' || agent.state === 'waiting')
+  const a = effectiveAgent(agent)
+  return Boolean(a.orcaSessionId) && (a.state === 'done' || a.state === 'waiting')
 }
 
 /**
@@ -128,8 +144,9 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
   for (const ws of ps?.worktrees || []) {
     if (ws.isArchived) continue
     if (projects.length && !projects.includes(ws.repoId)) continue
-    for (const agent of ws.agents || []) {
-      if (!agent.orcaSessionId || excludeSessions.includes(agent.orcaSessionId)) continue
+    for (const raw of ws.agents || []) {
+      if (!raw.orcaSessionId || excludeSessions.includes(raw.orcaSessionId)) continue
+      const agent = effectiveAgent(raw)
       const listed = kinds.get(agent.orcaSessionId)
       const handle = typeof agent.address === 'string' ? agent.address : null
       const kind = listed?.kind || (handle?.startsWith('term_') ? 'terminal' : 'chat')
@@ -156,6 +173,7 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
         updatedAt: agent.updatedAt || ws.lastActivityAt || null,
         attention,
         lane: laneFor(agent, attention),
+        background: Boolean(agent.background),
         fingerprint: fingerprint(agent)
       })
     }
