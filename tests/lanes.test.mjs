@@ -25,8 +25,15 @@ test('ignores questions inside code blocks and quotes', () => {
   assert.equal(detectQuestion('> 원래 질문: 이렇게 할까요?\n반영했습니다.'), null)
 })
 
+const lines = (n) => Array.from({ length: n }, (_, i) => `note ${i + 1}`).join('\n')
+
 test('a question high above the last lines is not a pending question', () => {
-  assert.equal(detectQuestion('이렇게 할까요?\n1\n2\n3\n4\n5\n완료.'), null)
+  assert.equal(detectQuestion(`이렇게 할까요?\n${lines(20)}`), null)
+})
+
+// Agents often follow the question with notes (report paths, files to look at).
+test('a question followed by up to 19 lines of notes is still pending', () => {
+  assert.equal(detectQuestion(`보고서를 정리했습니다.\n1번부터 시작할까요?\n${lines(19)}`), '1번부터 시작할까요?')
 })
 
 test('lanes from the captured worktree ps shapes', () => {

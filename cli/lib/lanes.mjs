@@ -16,7 +16,11 @@ const QUESTION_PATTERNS = [
   /\b(shall i|should i|would you like|do you want|please confirm|let me know|tell me (which|whether|if)|which (one|option|would you)|can you confirm|okay to proceed|your call|up to you)\b/i
 ]
 
-/** Returns the last line of `text` that reads as a question to the person, or null. */
+// How far from the end of a reply a question still counts as pending. Agents often follow the
+// question with notes (report paths, what to look at), so a few lines is not enough.
+const QUESTION_TAIL_LINES = 20
+
+/** Returns the last line near the end of `text` that reads as a question to the person, or null. */
 export function detectQuestion(text) {
   if (!text) return null
   const withoutCode = text.replace(/```[\s\S]*?```/g, ' ')
@@ -25,7 +29,7 @@ export function detectQuestion(text) {
     .map((l) => l.trim())
     // Skip quotes and polite closers ("if you want…") that are not pending questions.
     .filter((l) => l && !l.startsWith('>') && !/^(만약|if you want|원하시면 언제든)/i.test(l))
-  const tail = lines.slice(-4)
+  const tail = lines.slice(-QUESTION_TAIL_LINES)
   for (let i = tail.length - 1; i >= 0; i--) {
     if (QUESTION_PATTERNS.some((re) => re.test(tail[i]))) return tail[i].slice(0, 400)
   }
