@@ -16,6 +16,16 @@ const QUESTION_PATTERNS = [
   /\b(shall i|should i|would you like|do you want|please confirm|let me know|tell me (which|whether|if)|which (one|option|would you)|can you confirm|okay to proceed|your call|up to you)\b/i
 ]
 
+// Lines that flag a decision for the person ("결정이 필요한 것: 눈 크기", "Decision needed: …"),
+// unless they say none is needed ("결정 불필요", "no decision needed").
+const DECISION_MARKER =
+  /(결정|선택|판단|승인)(이|을|를)?\s*(필요|해\s*주셔야|하셔야)|결정할\s*(것|사항|부분)|결정\s*사항|\b(decisions? (needed|required)|needs? your (decision|input|approval)|for you to decide|you('ll| will)? need to decide)\b/i
+const DECISION_NEGATED = /불필요|필요\s*(없|하지\s*않)|\bno decisions? (needed|required)\b|\bnot? need(ed)? to decide\b/i
+
+function asksThePerson(line) {
+  return QUESTION_PATTERNS.some((re) => re.test(line)) || (DECISION_MARKER.test(line) && !DECISION_NEGATED.test(line))
+}
+
 // How far from the end of a reply a question still counts as pending. Agents often follow the
 // question with notes (report paths, what to look at), so a few lines is not enough.
 const QUESTION_TAIL_LINES = 20
@@ -31,7 +41,8 @@ export function detectQuestion(text) {
     .filter((l) => l && !l.startsWith('>') && !/^(만약|if you want|원하시면 언제든)/i.test(l))
   const tail = lines.slice(-QUESTION_TAIL_LINES)
   for (let i = tail.length - 1; i >= 0; i--) {
-    if (QUESTION_PATTERNS.some((re) => re.test(tail[i]))) return tail[i].slice(0, 400)
+    // Markdown emphasis and heading marks are dropped from the card text.
+    if (asksThePerson(tail[i])) return tail[i].replace(/\*\*/g, '').replace(/^#+\s*/, '').slice(0, 400)
   }
   return null
 }

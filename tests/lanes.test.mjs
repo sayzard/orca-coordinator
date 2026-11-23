@@ -31,6 +31,17 @@ test('a question high above the last lines is not a pending question', () => {
   assert.equal(detectQuestion(`이렇게 할까요?\n${lines(20)}`), null)
 })
 
+// Seen live: a reply flagged "**결정이 필요한 것: 눈 크기**" as a section heading.
+test('a line flagging a decision for the person counts, unless it says none is needed', () => {
+  assert.equal(detectQuestion('분석했습니다.\n\n**결정이 필요한 것: 눈 크기**\n눈 크기는 보류해 두신 결정입니다.\n\n보고서는 README.md입니다.'), '결정이 필요한 것: 눈 크기')
+  assert.equal(detectQuestion('Analysis done.\n## Decision needed: eye size\nThe report is in README.md.'), 'Decision needed: eye size')
+  assert.equal(detectQuestion('1. **바로 할 수 있는 것 (결정 불필요):** 카메라를 140 mm로 바꿉니다.'), null)
+  assert.equal(detectQuestion('결정이 필요 없는 작업만 진행했습니다.'), null)
+  assert.equal(detectQuestion('Applied the fix; no decision needed.'), null)
+  // The question nearest the end still wins over the heading above it.
+  assert.equal(detectQuestion('**결정이 필요한 것: 눈 크기**\n보류 중입니다.\n1번부터 시작할까요?\n보고서는 README.md입니다.'), '1번부터 시작할까요?')
+})
+
 // Agents often follow the question with notes (report paths, files to look at).
 test('a question followed by up to 19 lines of notes is still pending', () => {
   assert.equal(detectQuestion(`보고서를 정리했습니다.\n1번부터 시작할까요?\n${lines(19)}`), '1번부터 시작할까요?')

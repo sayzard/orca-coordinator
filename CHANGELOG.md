@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format follows
   reported, so the question at the end was lost; cut-off readings are now ignored.
 - A question is found within the last 20 lines of a reply (was 4), since agents often follow it
   with notes such as report paths and files to look at.
+- Lines that flag a decision for the person count as a pending question too, e.g. a heading
+  "결정이 필요한 것: …" or "Decision needed: …", but not "결정 불필요" or "no decision needed".
+  Card text drops Markdown bold and heading marks.
 - A session whose turn has ended while a subagent is still working stays under "Running": the
   agent carries on when the subagent reports back. Only a background shell on its own lets the
   finished turn count.
