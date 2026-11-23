@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A session whose turn has ended while a subagent is still working stays under "Running": the
+  agent carries on when the subagent reports back. Only a background shell on its own lets the
+  finished turn count.
 - A session whose turn has ended while a background shell keeps running ("monitoring") is no
   longer shown as running: the board uses the main agent's state, so a question at the end of
   that turn appears under "Needs you".

@@ -134,3 +134,26 @@ test('a finished turn with a background shell still running counts as done', () 
   assert.match(s.attention.text, /^Tell me whether/)
   assert.equal(turnKey(a), 'done:1795435535871')
 })
+
+// Seen live: the turn ended with "the analysis is running in the background" while a subagent
+// worked on; the board showed it as idle, but the agent carries on when the subagent reports back.
+test('a finished turn with a working subagent stays running', () => {
+  const clone = structuredClone(ps)
+  const a = clone.worktrees[1].agents[0]
+  Object.assign(a, {
+    state: 'working',
+    stateStartedAt: 1795427463942,
+    mainAgent: { state: 'done', stateStartedAt: 1795436202351 },
+    programStatus: { state: 'working' },
+    subagents: [{ id: 'a1', state: 'working', startedAt: 1795436182566, agentType: 'general-purpose', description: 'Face analysis' }],
+    lastAssistantMessage: 'I handed the analysis to a background agent; I will summarize when it finishes.'
+  })
+  let s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.lane, 'running')
+  assert.equal(s.background, false)
+  // Once the subagent is done, the finished turn counts again (unread output: to review).
+  a.subagents[0].state = 'done'
+  s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.lane, a.activity?.unread ? 'review' : 'idle')
+  assert.equal(s.background, true)
+})

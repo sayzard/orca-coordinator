@@ -84,13 +84,19 @@ function trim(text, n) {
   return text.length > n ? text.slice(0, n) + '…' : text
 }
 
+/** A subagent still working: the main agent picks up its result and carries on by itself. */
+function hasWorkingSubagent(agent) {
+  return (agent.subagents || []).some((s) => s?.state === 'working')
+}
+
 /**
  * Orca keeps a session `working` ("monitoring") while a background shell runs, even after the
  * agent's turn has ended; `mainAgent.state` says whether the agent itself is done or waiting.
+ * A session with a working subagent stays running: the main agent resumes when it reports back.
  */
 export function effectiveAgent(agent) {
   const main = agent.mainAgent
-  if (agent.state === 'working' && main && (main.state === 'done' || main.state === 'waiting')) {
+  if (agent.state === 'working' && main && (main.state === 'done' || main.state === 'waiting') && !hasWorkingSubagent(agent)) {
     return { ...agent, state: main.state, stateStartedAt: main.stateStartedAt || agent.stateStartedAt, background: true }
   }
   return agent
