@@ -45,3 +45,17 @@ test('files are private to the user', async () => {
   assert.equal(statSync(join(home, 'x.json')).mode & 0o777, 0o600)
   void fileURLToPath
 })
+
+test('temp files older than a day are pruned on the next write', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'coord-tmp-'))
+  process.env.COORD_HOME = home
+  const { tempFile, pruneTemp } = await import(`${storeUrl}?t`)
+  const old = tempFile('request', 'old')
+  const { utimesSync, existsSync } = await import('node:fs')
+  const twoDaysAgo = (Date.now() - 2 * 86400_000) / 1000
+  utimesSync(old, twoDaysAgo, twoDaysAgo)
+  const fresh = tempFile('request', 'new')
+  assert.equal(existsSync(old), false)
+  assert.equal(existsSync(fresh), true)
+  assert.equal(pruneTemp(), 0)
+})

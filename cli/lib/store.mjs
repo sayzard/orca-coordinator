@@ -1,7 +1,7 @@
 // Small JSON store shared by the coordinator agent, the Orca bot, the plugin worker and the person.
 // Writes are atomic (temp file + rename) and serialized with a mkdir lock, because several
 // processes write the same files.
-import { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync, statSync, appendFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, renameSync, rmSync, statSync, appendFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { coordHome, dataPath } from './paths.mjs'
@@ -91,9 +91,29 @@ export function newId(prefix) {
   return `${prefix}_${Date.now().toString(36)}${randomBytes(3).toString('hex')}`
 }
 
+const TEMP_MAX_AGE_MS = 24 * 3600_000
+
+/** Removes temp files older than a day; Orca has read them long before. Best effort. */
+export function pruneTemp(now = Date.now()) {
+  let removed = 0
+  try {
+    for (const name of readdirSync(dataPath('tmp'))) {
+      const path = dataPath(`tmp/${name}`)
+      try {
+        if (now - statSync(path).mtimeMs > TEMP_MAX_AGE_MS) {
+          rmSync(path, { force: true })
+          removed++
+        }
+      } catch {}
+    }
+  } catch {}
+  return removed
+}
+
 /** Writes text to a private temp file (for --body-file / --spec-file) and returns its path. */
 export function tempFile(prefix, text) {
   ensureHome()
+  pruneTemp()
   const path = dataPath(`tmp/${prefix}-${Date.now()}-${randomBytes(3).toString('hex')}.txt`)
   writeFileSync(path, text, { mode: 0o600 })
   return path

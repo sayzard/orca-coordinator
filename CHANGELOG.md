@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Temp files for mail bodies and worker specs (`~/.orca-coordinator/tmp/`) older than a day are
+  removed automatically instead of piling up.
+
 ### Fixed
 
 - The status bar and notifications follow the board language (`coord setup --language`) when the
