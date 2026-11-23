@@ -57,7 +57,7 @@ All notable changes to this project are documented here. The format follows
   sending `undefined`, which the Orca host rejects, and coord error envelopes are coerced to
   strings.
 
-## [0.3.4] - 2026-11-23
+## 0.3.4 - 2026-11-23 (not released)
 
 ### Added
 
@@ -87,7 +87,7 @@ All notable changes to this project are documented here. The format follows
   per refresh, most recent first. Card fingerprints still use Orca's own value, so cards don't go
   stale when the reading arrives.
 
-## [0.3.0] - 2026-11-23
+## 0.3.0 - 2026-11-23 (not released)
 
 ### Added
 
@@ -107,7 +107,7 @@ All notable changes to this project are documented here. The format follows
 - The status bar and notifications follow the board language (`coord setup --language`) when the
   plugin's language setting is `auto`, instead of the system locale.
 
-## [0.2.0] - 2026-11-23
+## 0.2.0 - 2026-11-23 (not released)
 
 First public release.
 
@@ -126,7 +126,4 @@ First public release.
 - Board mailbox terminal so processes without an Orca identity can send mail; attested callers
   fall back to their own identity.
 
-[Unreleased]: https://github.com/sayzard/orca-coordinator/compare/v0.3.4...HEAD
-[0.3.4]: https://github.com/sayzard/orca-coordinator/compare/v0.3.0...v0.3.4
-[0.3.0]: https://github.com/sayzard/orca-coordinator/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/sayzard/orca-coordinator/releases/tag/v0.2.0
+[Unreleased]: https://github.com/sayzard/orca-coordinator/commits/main
