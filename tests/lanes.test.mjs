@@ -31,15 +31,15 @@ test('a question high above the last lines is not a pending question', () => {
   assert.equal(detectQuestion(`이렇게 할까요?\n${lines(20)}`), null)
 })
 
-// Seen live: a reply flagged "**결정이 필요한 것: 눈 크기**" as a section heading.
+// Seen live: a reply flagged the decision as a section heading instead of asking a question.
 test('a line flagging a decision for the person counts, unless it says none is needed', () => {
-  assert.equal(detectQuestion('분석했습니다.\n\n**결정이 필요한 것: 눈 크기**\n눈 크기는 보류해 두신 결정입니다.\n\n보고서는 README.md입니다.'), '결정이 필요한 것: 눈 크기')
-  assert.equal(detectQuestion('Analysis done.\n## Decision needed: eye size\nThe report is in README.md.'), 'Decision needed: eye size')
-  assert.equal(detectQuestion('1. **바로 할 수 있는 것 (결정 불필요):** 카메라를 140 mm로 바꿉니다.'), null)
+  assert.equal(detectQuestion('분석했습니다.\n\n**결정이 필요한 것: 배포 시점**\n배포 시점은 보류해 두신 결정입니다.\n\n보고서는 README.md입니다.'), '결정이 필요한 것: 배포 시점')
+  assert.equal(detectQuestion('Analysis done.\n## Decision needed: release date\nThe report is in README.md.'), 'Decision needed: release date')
+  assert.equal(detectQuestion('1. **바로 할 수 있는 것 (결정 불필요):** 로그 수준을 낮춥니다.'), null)
   assert.equal(detectQuestion('결정이 필요 없는 작업만 진행했습니다.'), null)
   assert.equal(detectQuestion('Applied the fix; no decision needed.'), null)
   // The question nearest the end still wins over the heading above it.
-  assert.equal(detectQuestion('**결정이 필요한 것: 눈 크기**\n보류 중입니다.\n1번부터 시작할까요?\n보고서는 README.md입니다.'), '1번부터 시작할까요?')
+  assert.equal(detectQuestion('**결정이 필요한 것: 배포 시점**\n보류 중입니다.\n1번부터 시작할까요?\n보고서는 README.md입니다.'), '1번부터 시작할까요?')
 })
 
 // Agents often follow the question with notes (report paths, files to look at).
@@ -124,7 +124,7 @@ test('a cut-off transcript reading does not hide the question at the end of the 
   const clone = structuredClone(ps)
   const chat = clone.worktrees[1].agents[2]
   Object.assign(chat, { state: 'done', lastAssistantMessage: 'Long report.\n\nShall I start with step 1?\n\nThe report is in Reports/README.md.', activity: { ...chat.activity, unread: false } })
-  const finals = { 'sess-chat': { key: turnKey(chat), text: 'Long report.\n\nThe remaining gap is the eye size, which you put on hold\n… (truncated)' } }
+  const finals = { 'sess-chat': { key: turnKey(chat), text: 'Long report.\n\nThe remaining work is in the second section, which\n… (truncated)' } }
   const s = byId(deriveSessions(applyFinalReplies(clone, finals)))['sess-chat']
   assert.equal(s.lane, 'human')
   assert.equal(s.attention.text, 'Shall I start with step 1?')
