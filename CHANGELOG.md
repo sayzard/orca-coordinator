@@ -11,6 +11,9 @@ All notable changes to this project are documented here. The format follows
 - A session whose turn has ended while a subagent is still working stays under "Running": the
   agent carries on when the subagent reports back. Only a background shell on its own lets the
   finished turn count.
+- A dismissed or answered card also takes its session out of "Needs you" in Progress and Kanban
+  until the session moves on, and closing a coordinator card no longer brings back the automatic
+  card for the same question.
 - A session whose turn has ended while a background shell keeps running ("monitoring") is no
   longer shown as running: the board uses the main agent's state, so a question at the end of
   that turn appears under "Needs you".

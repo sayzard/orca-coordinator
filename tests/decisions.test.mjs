@@ -10,7 +10,7 @@ process.env.COORD_HOME = mkdtempSync(join(tmpdir(), 'coord-test-'))
 process.env.COORD_ORCA_BIN = fileURLToPath(new URL('./fixtures/fake-orca.sh', import.meta.url))
 
 const { deriveSessions } = await import('../cli/lib/lanes.mjs')
-const { addDecision, boardCards, guard, prepareTerminalAnswer, markDelivered, dismissDecision, readDecisions, formatAnswer } = await import('../cli/lib/decisions.mjs')
+const { addDecision, boardCards, guard, prepareTerminalAnswer, markDelivered, dismissDecision, readDecisions, formatAnswer, settleHandled } = await import('../cli/lib/decisions.mjs')
 
 const ps = JSON.parse(readFileSync(new URL('./fixtures/worktree-ps.json', import.meta.url), 'utf8'))
 let sessions
@@ -93,6 +93,26 @@ test('dismissing an auto card hides it until the session changes', async () => {
   assert.ok(!boardCards(sessions).some((c) => c.id === 'auto:sess-chat'))
   const later = moved('sess-chat', { fingerprint: 'new-turn' })
   assert.ok(boardCards(later).some((c) => c.id === 'auto:sess-chat'))
+})
+
+// Seen live: after [Dismiss] the card was gone, but Progress still counted the session under
+// "Needs you".
+test('a handled session leaves the Needs you lane until it moves on', () => {
+  const settled = settleHandled(sessions)
+  const chat = settled.find((s) => s.sessionId === 'sess-chat')
+  assert.notEqual(chat.lane, 'human')
+  assert.equal(chat.attention, null)
+  assert.equal(chat.handled, true)
+  // The menu was never dealt with, so it still needs the person.
+  assert.equal(settled.find((s) => s.sessionId === 'sess-menu').lane, 'human')
+  const later = settleHandled(moved('sess-chat', { fingerprint: 'new-turn' }))
+  assert.equal(later.find((s) => s.sessionId === 'sess-chat').lane, 'human')
+})
+
+test('closing a coordinator card keeps the auto card for that state from coming back', () => {
+  // sess-question's coordinator card was answered above; its own question is not re-raised.
+  assert.ok(!boardCards(sessions).some((c) => c.id === 'auto:sess-question'))
+  assert.notEqual(settleHandled(sessions).find((s) => s.sessionId === 'sess-question').lane, 'human')
 })
 
 test('menu cards sort ahead of undated coordinator cards', async () => {

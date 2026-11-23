@@ -47,12 +47,28 @@ function attach(card, session) {
   }
 }
 
+function handledKeys(store) {
+  return new Set(store.suppressed.map((s) => `${s.sessionId}:${s.fingerprint}`))
+}
+
+/**
+ * A session whose card was answered or dismissed in its current state no longer needs the
+ * person: it leaves the "Needs you" lane until the session moves on (a new fingerprint).
+ */
+export function settleHandled(sessions, store = readDecisions()) {
+  const handled = handledKeys(store)
+  return sessions.map((s) => {
+    if (s.lane !== 'human' || !handled.has(`${s.sessionId}:${s.fingerprint}`)) return s
+    return { ...s, attention: null, handled: true, lane: s.state === 'done' && s.unread ? 'review' : 'idle' }
+  })
+}
+
 /** Open cards for the board: stored ones first-class, auto ones only where no stored card covers the session. */
 export function boardCards(sessions, store = readDecisions()) {
   const bySession = new Map(sessions.map((s) => [s.sessionId, s]))
   const open = store.decisions.filter((d) => d.status === 'open')
   const covered = new Set(open.map((d) => d.sessionId))
-  const suppressed = new Set(store.suppressed.map((s) => `${s.sessionId}:${s.fingerprint}`))
+  const suppressed = handledKeys(store)
   const cards = open.map((d) => attach(d, bySession.get(d.sessionId)))
   for (const s of sessions) {
     if (covered.has(s.sessionId) || suppressed.has(`${s.sessionId}:${s.fingerprint}`)) continue
@@ -158,10 +174,11 @@ async function closeCard(id, card, session, { text, via, receipt }) {
   const now = Date.now()
   await updateJson('decisions.json', EMPTY, (store) => {
     const s = { ...EMPTY, ...store }
-    if (id.startsWith('auto:')) {
-      s.suppressed = s.suppressed.filter((x) => now - x.at < 7 * 86400_000)
-      if (session) s.suppressed.push({ sessionId: session.sessionId, fingerprint: session.fingerprint, at: now })
-    } else {
+    // Remember the session state the person dealt with, so neither its auto card nor its
+    // "Needs you" lane comes back until the session moves on.
+    s.suppressed = s.suppressed.filter((x) => now - x.at < 7 * 86400_000)
+    if (session) s.suppressed.push({ sessionId: session.sessionId, fingerprint: session.fingerprint, at: now })
+    if (!id.startsWith('auto:')) {
       s.decisions = s.decisions.map((d) => (d.id === id ? { ...d, status: via === 'dismiss' ? 'dismissed' : 'answered', answer: text || null, delivery: { via, at: now, receipt: receipt || null }, updatedAt: now } : d))
     }
     return s

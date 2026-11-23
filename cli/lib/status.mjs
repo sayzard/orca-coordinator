@@ -1,7 +1,7 @@
 // One snapshot of the whole board: what the panel draws, what the bot reports, what the
 // coordinator reads at the start of a turn.
 import { applyFinalReplies, deriveSessions, groupByProject, LANE_ORDER } from './lanes.mjs'
-import { boardCards } from './decisions.mjs'
+import { boardCards, settleHandled } from './decisions.mjs'
 import { readWorktrees, readAgentList, readUsage, readFinalReplies } from './data.mjs'
 import { readRequests, closedWorktrees } from './requests.mjs'
 import { readHistory } from './store.mjs'
@@ -13,7 +13,7 @@ export async function loadSessions(config, { fresh = false } = {}) {
   const sessions = deriveSessions(applyFinalReplies(ps, finals), { agentList, projects: config.projects || [], excludeSessions: exclude })
   const closed = closedWorktrees()
   // A finished, verified request's worker is not waiting for review any more.
-  return sessions.map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
+  return settleHandled(sessions).map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
 }
 
 function slimSession(s) {
