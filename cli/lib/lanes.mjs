@@ -195,6 +195,8 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
         toolName: agent.toolName || null,
         prompt: trim(agent.prompt, 600),
         lastAssistantMessage: trim(replyOf(agent), 2000),
+        // The end of the reply, where questions are: evidence for tuning detection.
+        replyTail: replyOf(agent).slice(-3000),
         unread: Boolean(agent.activity?.unread),
         updatedAt: agent.updatedAt || ws.lastActivityAt || null,
         attention,

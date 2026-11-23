@@ -5,6 +5,7 @@ import { boardCards, settleHandled } from './decisions.mjs'
 import { readWorktrees, readAgentList, readUsage, readFinalReplies } from './data.mjs'
 import { readRequests, closedWorktrees } from './requests.mjs'
 import { readHistory } from './store.mjs'
+import { watchTurns } from './signals.mjs'
 
 export async function loadSessions(config, { fresh = false } = {}) {
   const [ps, agentList] = await Promise.all([readWorktrees(config, { fresh }), readAgentList(config, { fresh }).catch(() => null)])
@@ -13,11 +14,13 @@ export async function loadSessions(config, { fresh = false } = {}) {
   const sessions = deriveSessions(applyFinalReplies(ps, finals), { agentList, projects: config.projects || [], excludeSessions: exclude })
   const closed = closedWorktrees()
   // A finished, verified request's worker is not waiting for review any more.
-  return settleHandled(sessions).map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
+  const settled = settleHandled(sessions).map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
+  watchTurns(settled)
+  return settled
 }
 
 function slimSession(s) {
-  const { lastAssistantMessage, prompt, ...rest } = s
+  const { lastAssistantMessage, prompt, replyTail, ...rest } = s
   return { ...rest, lastAssistantMessage: (lastAssistantMessage || '').slice(0, 600), prompt: (prompt || '').slice(0, 200) }
 }
 

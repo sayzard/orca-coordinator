@@ -7,6 +7,7 @@ import { readJson, updateJson, appendHistory, newId, tempFile } from './store.mj
 import { orca } from './orca.mjs'
 import { sendAsBoard } from './board.mjs'
 import { requireCoordinator } from './data.mjs'
+import { recordCardOutcome } from './signals.mjs'
 
 const EMPTY = { version: 1, decisions: [], suppressed: [] }
 const PRIORITY_RANK = { now: 0, menu: 1, permission: 1, reply: 1, today: 2, week: 3, undated: 5 }
@@ -183,6 +184,7 @@ async function closeCard(id, card, session, { text, via, receipt }) {
     }
     return s
   })
+  recordCardOutcome(via === 'dismiss' ? 'dismissed' : 'card_answered', card, session)
   appendHistory({ type: via === 'dismiss' ? 'decision.dismissed' : 'decision.answered', id, sessionId: card?.sessionId, question: card?.question, answer: text || null, via, project: session?.project || card?.target?.project, title: session?.title || card?.target?.title, receipt: receipt || null })
   if (session) await orca(['worktree', 'set', '--worktree', session.workspaceSelector, '--read']).catch(() => null)
 }

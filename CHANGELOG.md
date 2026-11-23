@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A way to measure and tune question detection on real turns:
+  `scripts/detection-eval.mjs` builds a private corpus of finished turns (Claude Code and Codex
+  transcripts plus board signals) under the coordinator home, hands out items to label, and
+  reports decision recall, precision, offers flagged and false alarms on tune and holdout splits.
+  Labels follow [docs/detection-rubric.md](docs/detection-rubric.md).
+- The board records evidence while it is used (dismissed cards, answered cards, and replies to
+  turns it did not flag) in `eval/signals.jsonl` under the coordinator home.
+- [docs/detection-round.md](docs/detection-round.md): a daily improvement round the Orca bot
+  hands to the coordinator.
+
 ### Fixed
 
 - A long final reply ending with a question shows under "Needs you" again. `orca agent read` cuts
