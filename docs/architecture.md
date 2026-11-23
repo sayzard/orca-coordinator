@@ -99,6 +99,8 @@ workspaces read.
 - The worker refreshes on Orca events (`agent.status.changed`, `workspace.created/removed`,
   debounced) and every 45 seconds, posts the snapshot to open panels, updates the status bar and
   raises desktop notifications for new urgent cards.
+- The Progress tab builds its kanban from the same snapshot: session lanes, `decision.answered`
+  history entries (Follow-up, with the target session's current lane) and `done` requests (Done).
 - The panel has no logic beyond rendering and calling the worker. Panel strings are in
   `src/i18n.ts` and follow Orca's UI language; worker text follows the `language` setting.
 - Tests run the real worker and panel against Orca's test kit with fake `coord`/`orca` scripts in

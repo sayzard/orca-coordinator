@@ -1,6 +1,6 @@
 {
   "name": "orca-coordinator",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "A coordinator layer for the Orca agent IDE: decision cards, work requests and grade-based model routing across many coding agents",
   "keywords": [

@@ -4,6 +4,7 @@
 import {
   atom,
   Badge,
+  Box,
   Button,
   Callout,
   Card as UiCard,
@@ -11,6 +12,7 @@ import {
   Collapsible,
   EmptyState,
   env,
+  Grid,
   Heading,
   IconButton,
   List,
@@ -18,6 +20,7 @@ import {
   Markdown,
   plugin,
   Progress,
+  RadioGroup,
   read,
   RelativeTime,
   Row,
@@ -30,7 +33,9 @@ import {
   Text,
   Textarea,
   update,
-  type PanelContext
+  type IconName,
+  type PanelContext,
+  type Tone
 } from 'orca'
 import type { ActionResult, Card, ProjectGroup, RepoRow, SessionRow, Snapshot } from './protocol'
 import { has, pickLang, resultText, t, type Key, type Lang } from './i18n'
@@ -54,6 +59,9 @@ const busy = atom({} as Record<string, boolean>)
 const notes = atom({} as Record<string, ActionResult>)
 const requestText = atom('request-draft', '', { persist: 'plugin' })
 const requestProject = atom('auto')
+const progressView = atom('progress-view', 'kanban', { persist: 'plugin' })
+const progressProject = atom('progress-project', 'all', { persist: 'plugin' })
+const expandedColumns = atom({} as Record<string, boolean>)
 const repos = atom<RepoRow[] | null>(null)
 const picked = atom<Record<string, boolean>>({})
 
@@ -254,7 +262,7 @@ function SessionItem({ s }: { s: SessionRow }) {
   )
 }
 
-function ProgressTab({ groups }: { groups: ProjectGroup[] }) {
+function ProjectList({ groups }: { groups: ProjectGroup[] }) {
   const L = lang()
   if (!groups.length) return <EmptyState icon="folder" title={t(L, 'progress.empty.title')} description={t(L, 'progress.empty.body')} />
   return (
@@ -271,6 +279,136 @@ function ProgressTab({ groups }: { groups: ProjectGroup[] }) {
           </List>
         </Collapsible>
       ))}
+    </Stack>
+  )
+}
+
+// Kanban columns in the order the Paseo coordinator board uses; empty columns are hidden.
+const KANBAN_ORDER = ['running', 'review', 'human', 'history', 'idle', 'done', 'unknown'] as const
+type Column = (typeof KANBAN_ORDER)[number]
+const COLUMN_TONE: Record<Column, Tone> = { running: 'accent', review: 'warning', human: 'danger', history: 'neutral', idle: 'neutral', done: 'success', unknown: 'neutral' }
+const LANE_ICON: Record<string, IconName> = { human: 'warning', running: 'play', review: 'check', idle: 'pause', unknown: 'info' }
+const COLUMN_LIMIT = 4
+
+type KanbanItem = { key: string; title: string; description: string; icon: IconName; onPress?: () => void }
+
+function openSession(s: SessionRow) {
+  return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector }))
+}
+
+/** Sessions by lane, plus answered decisions (follow-up) and verified requests (done). */
+function kanbanColumns(snap: Extract<Snapshot, { ok: true }>, project: string, L: Lang): Record<Column, KanbanItem[]> {
+  const cols = Object.fromEntries(KANBAN_ORDER.map((c) => [c, [] as KanbanItem[]])) as Record<Column, KanbanItem[]>
+  const groups = snap.status.projects.filter((g) => project === 'all' || g.repoId === project)
+  const projectName = project === 'all' ? null : groups[0]?.project ?? null
+  const showProject = project === 'all'
+  const sessions = new Map<string, SessionRow & { project: string }>()
+  for (const g of groups) {
+    for (const s of g.sessions) {
+      sessions.set(s.sessionId, { ...s, project: g.project })
+      const lane = (KANBAN_ORDER as readonly string[]).includes(s.lane) ? (s.lane as Column) : 'unknown'
+      cols[lane].push({
+        key: `s:${s.sessionId}`,
+        title: s.title,
+        description: [showProject ? g.project : null, s.agent || s.kind, s.workspace].filter(Boolean).join(' · '),
+        icon: LANE_ICON[s.lane] || 'info',
+        onPress: () => void openSession(s)
+      })
+    }
+  }
+  for (const h of snap.status.history) {
+    if (h.type !== 'decision.answered') continue
+    if (projectName && h.project !== projectName) continue
+    if (!projectName && project !== 'all') continue
+    const target = h.sessionId ? sessions.get(h.sessionId) : undefined
+    const now = target ? t(L, 'kanban.now', { lane: t(L, `lane.${target.lane}` as Key) }) : null
+    cols.history.push({
+      key: `h:${h.at}:${h.sessionId || ''}`,
+      title: h.question || h.title || '',
+      description: [`→ ${(h.answer || '').slice(0, 60)}`, showProject ? h.project : null, now].filter(Boolean).join(' · '),
+      icon: 'next',
+      onPress: target ? () => void openSession(target) : undefined
+    })
+  }
+  for (const r of snap.status.requests) {
+    if (r.status !== 'done') continue
+    const a = r.assignments?.length ? r.assignments[r.assignments.length - 1] : null
+    const rp = r.project || a?.project || null
+    if (project !== 'all' && rp !== projectName && rp !== project) continue
+    cols.done.push({
+      key: `r:${r.id}`,
+      title: r.text.split('\n')[0].slice(0, 80),
+      description: [r.note || null, showProject ? rp : null, a ? `${a.model} (${a.grade})` : null].filter(Boolean).join(' · '),
+      icon: 'check'
+    })
+  }
+  return cols
+}
+
+function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
+  const L = lang()
+  const open = Boolean(read(expandedColumns)[col])
+  const shown = open ? items : items.slice(0, COLUMN_LIMIT)
+  const label = t(L, `lane.${col}` as Key)
+  return (
+    <Box key={`col:${col}`} border radius="md" padding="sm" gap="xs" background="muted">
+      <Row justify="between" align="center">
+        <Text size="sm" weight="semibold">
+          {label}
+        </Text>
+        <Badge tone={COLUMN_TONE[col]}>{String(items.length)}</Badge>
+      </Row>
+      <List label={label}>
+        {shown.map((it) => (
+          <ListItem key={it.key} icon={it.icon} title={it.title} description={it.description} onPress={it.onPress} />
+        ))}
+      </List>
+      {items.length > COLUMN_LIMIT ? (
+        <Button size="xs" variant="ghost" onPress={() => update(expandedColumns, (e) => ({ ...e, [col]: !open }))}>
+          {open ? t(L, 'less') : t(L, 'kanban.more', { n: items.length - COLUMN_LIMIT })}
+        </Button>
+      ) : null}
+    </Box>
+  )
+}
+
+function ProgressTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
+  const L = lang()
+  const view = read(progressView)
+  const groups = snap.status.projects
+  const options = [{ value: 'all', label: t(L, 'progress.allProjects') }, ...groups.filter((g) => g.repoId).map((g) => ({ value: g.repoId, label: g.project }))]
+  const chosen = read(progressProject)
+  const project = options.some((o) => o.value === chosen) ? chosen : 'all'
+  const filtered = project === 'all' ? groups : groups.filter((g) => g.repoId === project)
+  const cols = kanbanColumns(snap, project, L)
+  const visible = KANBAN_ORDER.filter((c) => cols[c].length)
+  return (
+    <Stack gap="sm">
+      <Row gap="sm" wrap align="end">
+        <Select label={t(L, 'progress.project')} labelHidden value={project} options={options} onChange={(v) => set(progressProject, v)} />
+        <RadioGroup
+          label={t(L, 'progress.view')}
+          labelHidden
+          orientation="horizontal"
+          value={view}
+          options={[
+            { value: 'kanban', label: t(L, 'view.kanban') },
+            { value: 'projects', label: t(L, 'view.projects') }
+          ]}
+          onChange={(v) => set(progressView, v)}
+        />
+      </Row>
+      {view === 'projects' ? (
+        <ProjectList groups={filtered} />
+      ) : visible.length === 0 ? (
+        <EmptyState icon="folder" title={t(L, 'progress.empty.title')} description={t(L, 'progress.empty.body')} />
+      ) : (
+        <Grid minItemWidth="md" gap="sm">
+          {visible.map((c) => (
+            <KanbanColumn col={c} items={cols[c]} />
+          ))}
+        </Grid>
+      )}
     </Stack>
   )
 }
@@ -456,7 +594,7 @@ export default function Panel() {
           <DecisionsTab cards={s.decisions} hasCoordinator={Boolean(s.coordinator)} />
         </Tab>
         <Tab value="progress" label={t(L, 'tab.progress')} icon="activity">
-          <ProgressTab groups={s.projects} />
+          <ProgressTab snap={snap} />
         </Tab>
         <Tab value="request" label={t(L, 'tab.requests')} icon="bot">
           <RequestTab snap={snap} />

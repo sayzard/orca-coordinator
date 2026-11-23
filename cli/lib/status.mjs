@@ -44,6 +44,6 @@ export async function buildStatus(config, { fresh = false, project = null } = {}
     projects,
     requests,
     usage,
-    history: readHistory(15)
+    history: readHistory(40)
   }
 }

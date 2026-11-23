@@ -37,8 +37,9 @@ to Orca. Background and design notes: [docs/research.md](docs/research.md).
   (`orca account list`) or not installed.
 - **Requests from people and bots.** One entry point, `coord request`, for you (panel or
   terminal) and for an Orca Bot that collects work from Slack, GitHub, Linear or e-mail.
-- **Progress at a glance.** Sessions per project in Needs you / Running / To review / Idle lanes;
-  finished, verified workers are released so they stop asking for review.
+- **Kanban board.** Running / To review / Needs you / Follow-up / Idle / Done columns across
+  projects, with a project filter; a per-project list is one click away. Finished, verified workers
+  are released so they stop asking for review.
 - **English and Korean UI.** The panel follows Orca's UI language; cards are written in the board
   language you set.
 
@@ -92,7 +93,9 @@ notifications. It types into a terminal session only when you press [Send] on a 
   and post only the real decisions.
 - *Requests* — describe work under "Hand work to the coordinator"; it picks the project, grade and
   model and starts a worker in a new worktree.
-- *Progress* — sessions per project by lane. *Settings* — coordinator, usage, managed projects.
+- *Progress* — a kanban of every session by lane, plus answered decisions (Follow-up) and
+  verified requests (Done); filter by project or switch to the per-project list.
+- *Settings* — coordinator, usage, managed projects.
 
 **From an Orca Bot.** Add the block in [`bot/orca-bot-instructions.md`](bot/orca-bot-instructions.md)
 to the bot's `SOUL.md`; the bot then runs:

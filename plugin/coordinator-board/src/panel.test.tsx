@@ -71,12 +71,50 @@ test('the requests tab sends a request with the chosen project', async () => {
   assert.ok(p.find({ text: 'Sent to the coordinator.' }))
 })
 
-test('progress lists projects with lane counts', async () => {
+test('progress shows a kanban with only the non-empty columns, in board order', async () => {
   const { h } = host()
   const p = await mount(panel, { host: h, locale: 'en-US' })
   await p.select({ label: 'Board' }, 'progress')
+  const columns = p.findAll({ type: 'List' }).map((l) => l.label)
+  assert.deepEqual(columns, ['Running', 'To review', 'Needs you', 'Follow-up', 'Idle', 'Done'])
+  assert.ok(p.find({ text: /Fix the README typo\?/ }))
+  assert.ok(p.find({ text: /Add a Contributing section to the README/ }))
+})
+
+test('the project filter narrows every column', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'progress')
+  await p.select({ label: 'Project' }, 'repo-beta')
+  const columns = p.findAll({ type: 'List' }).map((l) => l.label)
+  assert.deepEqual(columns, ['Running', 'Needs you', 'Idle'])
+  assert.equal(p.find({ text: /Fix the README typo/ }), null)
+})
+
+test('pressing a kanban card opens its session', async () => {
+  const { h, sent } = host()
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'progress')
+  await p.press({ testId: 's:sess-working' })
+  const open = sent.find((s) => s.name === 'session.open')?.input as { kind: string; handle: string }
+  assert.deepEqual({ kind: open.kind, handle: open.handle }, { kind: 'terminal', handle: 'term_w-0004' })
+})
+
+test('the by-project view keeps the per-project list', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'progress')
+  await p.select({ label: 'View' }, 'projects')
   assert.ok(p.find({ label: 'alpha' }), p.summary().join(' | '))
   assert.ok(p.find({ label: 'beta' }))
+})
+
+test('kanban columns follow a Korean UI language', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'ko-KR' })
+  await p.select({ label: '보드' }, 'progress')
+  const columns = p.findAll({ type: 'List' }).map((l) => l.label)
+  assert.deepEqual(columns, ['진행 중', '확인 대기', '내 결정', '결정 후속', '대기', '완료'])
 })
 
 test('a worker failure shows a retry callout', async () => {

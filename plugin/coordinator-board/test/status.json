@@ -316,16 +316,35 @@
  ],
  "requests": [
   {
+   "id": "req_2",
+   "text": "Add a Contributing section to the README",
+   "status": "done",
+   "source": "human",
+   "createdAt": 1795421000000,
+   "project": "alpha",
+   "note": "Added the section, not committed",
+   "assignments": [
+    {
+     "agent": "claude",
+     "model": "claude-opus-5-5",
+     "grade": "C",
+     "project": "alpha"
+    }
+   ]
+  },
+  {
    "id": "req_1",
    "text": "Find out why login fails",
    "status": "assigned",
    "source": "bot:triage",
    "createdAt": 1795420000000,
+   "project": "beta",
    "assignments": [
     {
      "agent": "claude",
      "model": "claude-opus-5-5",
-     "grade": "C"
+     "grade": "C",
+     "project": "beta"
     }
    ]
   }
@@ -383,10 +402,18 @@
   {
    "at": 1795425000000,
    "type": "decision.answered",
+   "sessionId": "sess-done-unread",
    "question": "Fix the README typo?",
-   "answer": "Yes",
+   "answer": "Yes, fix it.",
    "via": "terminal",
-   "project": "alpha"
+   "project": "alpha",
+   "title": "Check curl headers"
+  },
+  {
+   "at": 1795424000000,
+   "type": "request.created",
+   "id": "req_2",
+   "text": "Add a Contributing section"
   }
  ]
 }

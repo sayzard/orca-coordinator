@@ -69,9 +69,9 @@ export type BoardStatus = {
   counts: { decisions: number; human: number; running: number; review: number; idle: number; unknown: number; sessions: number }
   decisions: Card[]
   projects: ProjectGroup[]
-  requests: { id: string; text: string; status: string; source: string; createdAt: number; assignments?: { agent: string; model: string; grade: string }[] }[]
+  requests: { id: string; text: string; status: string; source: string; createdAt: number; project?: string | null; note?: string | null; assignments?: { agent: string; model: string; grade: string; project?: string | null }[] }[]
   usage: UsageRow[]
-  history: { at: number; type: string; question?: string; answer?: string | null; via?: string; project?: string; title?: string; text?: string }[]
+  history: { at: number; type: string; sessionId?: string; question?: string; answer?: string | null; via?: string; project?: string; title?: string; text?: string }[]
 }
 
 export type Snapshot = { ok: true; status: BoardStatus; at: number } | { ok: false; code: string; message: string; at: number }

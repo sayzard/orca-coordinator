@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Added
+
+- Kanban view in the Progress tab, as on the Paseo board: Running, To review, Needs you,
+  Follow-up (answered decisions and where their session is now), Idle, Done (verified requests) and
+  Unknown columns. Empty columns are hidden; columns sit side by side when the sidebar is wide and
+  wrap when it is narrow; a project filter narrows every column. The per-project list stays as the
+  "By project" view.
+
 ### Changed
 
 - Temp files for mail bodies and worker specs (`~/.orca-coordinator/tmp/`) older than a day are
@@ -35,5 +45,6 @@ First public release.
 - Board mailbox terminal so processes without an Orca identity can send mail; attested callers
   fall back to their own identity.
 
-[Unreleased]: https://github.com/sayzard/orca-coordinator/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sayzard/orca-coordinator/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sayzard/orca-coordinator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sayzard/orca-coordinator/releases/tag/v0.2.0
