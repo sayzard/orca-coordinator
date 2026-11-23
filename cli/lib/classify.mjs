@@ -7,7 +7,8 @@
 // fallback while a result is pending or when no model is available.
 //
 // The reply's last lines are sent to the model through the local `claude` CLI, under the
-// person's own Claude account. `coord setup --classifier off` turns it off.
+// person's own Claude account. It is off by default: `coord setup --classifier on` or the board's
+// Settings tab turns it on.
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -59,7 +60,7 @@ export function claudeBin(config = {}) {
 
 export function classifierSettings(config = {}) {
   const c = config.classifier || {}
-  if (c.enabled === false) return null
+  if (!c.enabled) return null
   return { model: c.model || DEFAULT_MODEL, perRefresh: c.perRefresh ?? PER_REFRESH, timeoutMs: c.timeoutMs ?? TIMEOUT_MS, bin: claudeBin(config) }
 }
 

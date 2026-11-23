@@ -28,11 +28,10 @@ to Orca. Background and design notes: [docs/research.md](docs/research.md).
 - **"My decisions" cards.** Sessions that need you show up as cards with the target project and
   session, a one-sentence question, a suggested reply, the reasoning and quick options.
   [Send] delivers the reply to that session; [Ask coordinator] hands it back to the coordinator.
-- **Auto-detected cards.** Menus and permission prompts come from Orca's agent hooks. Each
-  finished turn is classified once by a small model (Claude Haiku through your local `claude`
-  CLI) as a decision for you, an optional offer, or a plain report, and decisions appear as cards
-  with the question to answer. Rules take over while a result is pending or when no model is
-  available. See [Turn classification](#turn-classification).
+- **Auto-detected cards.** Menus and permission prompts come from Orca's agent hooks; replies that
+  end in a question are found by rules. Optionally (off by default), each finished turn is
+  classified once by a small model (Claude Haiku through your local `claude` CLI) as a decision
+  for you, an optional offer, or a plain report. See [Turn classification](#turn-classification).
 - **Guarded delivery.** A reply is refused if the session moved on since the card was made, is
   busy, or shows a menu (answer those in the session), so answers never land in the wrong place.
 - **Grade-based routing.** The coordinator grades work A–D and `coord assign` picks the agent,
@@ -139,14 +138,17 @@ in `~/.orca-coordinator/config.json` to use other models; see
 | `excludedAgents` | `["gemini"]` | `coord setup --exclude gemini,cursor` |
 | `routing` | table above | edit the file |
 | `coordinator` | none | `coord coordinator start` / `set --session <id>` |
-| `classifier` | `{ "enabled": true, "model": "claude-haiku-5-5" }` | `coord setup --classifier off` / `on` / `<model>` |
+| `classifier` | `{ "enabled": false, "model": "claude-haiku-5-5" }` | Settings tab, or `coord setup --classifier on` / `off` / `<model>` |
 
 ### Turn classification
 
-When a session finishes a turn without a menu or permission prompt, the end of its final reply
+Off by default. Turn it on in the board's Settings tab (or `coord setup --classifier on`). Then,
+when a session finishes a turn without a menu or permission prompt, the end of its final reply
 (the last 40 lines) is sent to the model through the local `claude` CLI, under your own Claude
-account, once per turn. The result is cached in `~/.orca-coordinator/cache/turn-class.json`.
-Turn it off with `coord setup --classifier off` to use only the rule-based detector.
+account, once per turn — including replies from other agents such as Codex. The result is cached
+in `~/.orca-coordinator/cache/turn-class.json`. Decisions become cards with the question to
+answer; optional offers and reports stay out of "Needs you". The rules take over while a result
+is pending, when the model is unavailable, and whenever the classifier is off.
 
 `scripts/detection-eval.mjs` measures both on your own turns: it builds a private labeled corpus
 under `~/.orca-coordinator/eval/` (never in the repository) and reports recall, precision,

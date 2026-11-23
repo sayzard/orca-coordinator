@@ -257,6 +257,12 @@ export default function activate(orca: OrcaWorkerApi): void {
     return result(env, (r) => (r.projects.length ? { key: 'msg.projectsSaved', params: { n: r.projects.length } } : { key: 'msg.projectsAll' }))
   })
 
+  orca.panels.handle('classifier.set', async ({ enabled }) => {
+    const env = await coord(['setup', '--classifier', enabled ? 'on' : 'off'])
+    void refresh(true)
+    return result(env, () => ({ key: enabled ? 'msg.classifierOn' : 'msg.classifierOff' }))
+  })
+
   orca.panels.handle('coordinator.start', async () => {
     const env = await coord(['coordinator', 'start'], 150_000)
     void refresh(true)

@@ -256,7 +256,7 @@ async function modelPredictions(items, model) {
   const path = file(`model-${model}-p${PROMPT_ID}.jsonl`)
   const done = new Map(readJsonl(path).map((r) => [r.id, r]))
   const todo = items.filter((i) => !done.has(i.id))
-  const settings = classifierSettings({ classifier: { model } })
+  const settings = classifierSettings({ classifier: { enabled: true, model } })
   let next = 0
   const fresh = []
   await Promise.all(

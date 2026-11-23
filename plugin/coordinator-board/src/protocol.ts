@@ -67,6 +67,8 @@ export type BoardStatus = {
   generatedAt: number
   /** Board language from `coord setup --language`. */
   language?: string
+  /** Turn-end classification with a small model; off unless turned on. */
+  classifier?: { enabled: boolean; model: string }
   managedProjects: string[]
   coordinator: { sessionId: string; agent?: string; model?: string; state: string; lastReply?: string } | null
   counts: { decisions: number; human: number; running: number; review: number; idle: number; unknown: number; sessions: number }
@@ -94,6 +96,7 @@ declare module 'orca' {
     'projects.list': { output: { ok: boolean; repos: RepoRow[]; message?: string } }
     'projects.set': { input: { ids: string[] }; output: ActionResult }
     'coordinator.start': { output: ActionResult }
+    'classifier.set': { input: { enabled: boolean }; output: ActionResult }
   }
   interface PluginPanelEvents {
     'board.snapshot': Snapshot

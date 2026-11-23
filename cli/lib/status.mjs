@@ -45,6 +45,7 @@ export async function buildStatus(config, { fresh = false, project = null } = {}
   return {
     generatedAt: Date.now(),
     language: config.language || 'en',
+    classifier: { enabled: Boolean(config.classifier?.enabled), model: config.classifier?.model || 'claude-haiku-5-5' },
     managedProjects: config.projects || [],
     coordinator,
     counts: { decisions: cards.length, ...totals, sessions: sessions.length },

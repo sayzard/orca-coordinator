@@ -559,6 +559,17 @@ function SettingsTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
         <Note id="coordinator" />
       </Stack>
       <Stack gap="xs">
+        <Heading level={3}>{t(L, 'settings.classifier')}</Heading>
+        <Checkbox
+          label={t(L, 'settings.classifierLabel', { model: snap.status.classifier?.model || 'claude-haiku-5-5' })}
+          description={t(L, 'settings.classifierHint')}
+          checked={Boolean(snap.status.classifier?.enabled)}
+          disabled={Boolean(read(busy).classifier)}
+          onChange={(v) => act('classifier', () => plugin.request('classifier.set', { enabled: v }))}
+        />
+        <Note id="classifier" />
+      </Stack>
+      <Stack gap="xs">
         <Heading level={3}>{t(L, 'settings.usage')}</Heading>
         {snap.status.usage
           .filter((u) => u.status === 'ok')

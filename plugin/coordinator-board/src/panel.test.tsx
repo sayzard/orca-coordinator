@@ -129,6 +129,18 @@ test('a closed coordinator is flagged and can be restarted from Settings', async
   assert.ok(p.find({ text: 'Coordinator started: claude/claude-opus-5-5' }))
 })
 
+test('turn classification is off by default and can be turned on in Settings', async () => {
+  const { h, sent } = host({ 'classifier.set': (input: unknown) => (sent.push({ name: 'classifier.set', input }), { ok: true, key: 'msg.classifierOn', message: 'on' }) })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'settings')
+  const box = p.find({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' })
+  assert.ok(box)
+  assert.equal(p.valueOf({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' }), false)
+  await p.toggle({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' })
+  assert.deepEqual(sent.filter((s) => s.name === 'classifier.set').map((s) => s.input), [{ enabled: true }])
+  assert.ok(p.find({ text: 'Turn classification is on.' }))
+})
+
 test('a worker failure shows a retry callout', async () => {
   const { h } = host({ 'board.snapshot': () => ({ ok: false, code: 'runtime_timeout', message: 'Orca is busy', at: 1 }) })
   const p = await mount(panel, { host: h, locale: 'en-US' })

@@ -44,9 +44,10 @@ test('parseClassification keeps only known labels and drops questions outside de
   assert.equal(parseClassification('no json'), null)
 })
 
-test('the classifier can be turned off', () => {
+test('the classifier is off unless turned on', () => {
+  assert.equal(classifierSettings({}), null)
   assert.equal(classifierSettings({ classifier: { enabled: false } }), null)
-  assert.equal(classifierSettings({}).model, 'claude-haiku-5-5')
+  assert.equal(classifierSettings({ classifier: { enabled: true } }).model, 'claude-haiku-5-5')
 })
 
 test('a model decision raises a question the rules missed; offers and reports stay quiet', async () => {
@@ -95,6 +96,7 @@ test('a changed reply or a new turn is classified again; an unparseable answer f
 test('excluded sessions and unmanaged projects are not classified', async () => {
   const data = withReplies({ 'sess-coordinator': 'Coordinator report LAYOUTS.', 'sess-idle': 'Another report.' })
   const { run, calls } = fakeRun()
-  await readTurnClasses(data, { classifier: { model: 'other-model' } }, { run, excludeSessions: ['sess-coordinator'], projects: ['repo-alpha'] })
+  await readTurnClasses(data, { classifier: { enabled: true, model: 'other-model' } }, { run, excludeSessions: ['sess-coordinator'], projects: ['repo-alpha'] })
+  assert.ok(calls.length > 0, 'managed sessions are classified')
   assert.ok(!calls.some((c) => c.includes('Coordinator report')))
 })

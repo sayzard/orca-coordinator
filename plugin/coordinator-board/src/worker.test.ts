@@ -79,6 +79,18 @@ test('requests, digest and coordinator handoff reach coord', async () => {
   await worker.deactivate()
 })
 
+test('the Settings toggle turns turn classification on and off through coord setup', async () => {
+  const { host, calls } = setup()
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const on = await worker.request('classifier.set', { enabled: true })
+  assert.equal(on.key, 'msg.classifierOn')
+  const off = await worker.request('classifier.set', { enabled: false })
+  assert.equal(off.key, 'msg.classifierOff')
+  const setups = calls().filter((a) => a[0] === 'setup' && a.includes('--classifier'))
+  assert.deepEqual(setups.map((a) => a[a.indexOf('--classifier') + 1]), ['on', 'off'])
+  await worker.deactivate()
+})
+
 test('a coord failure shows on the status bar instead of throwing', async () => {
   const { host } = setup('fake-coord-error.mjs')
   const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })

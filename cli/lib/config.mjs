@@ -69,8 +69,9 @@ export function defaultConfig() {
     language: detectLanguage(),
     usageCacheSeconds: 300,
     statusCacheSeconds: 5,
-    // Turn-end classification with a small model (cli/lib/classify.mjs); { enabled: false } turns it off.
-    classifier: { enabled: true, model: 'claude-haiku-5-5' }
+    // Turn-end classification with a small model (cli/lib/classify.mjs). Off by default: it sends
+    // the end of each finished reply to the model; turn it on in Settings or with `coord setup --classifier on`.
+    classifier: { enabled: false, model: 'claude-haiku-5-5' }
   }
 }
 
