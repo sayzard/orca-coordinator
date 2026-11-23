@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-23
+
 ### Added
 
 - Animated marks so running work and pending decisions stand out: a spinner before running
@@ -73,6 +75,7 @@ First public release.
 - Board mailbox terminal so processes without an Orca identity can send mail; attested callers
   fall back to their own identity.
 
-[Unreleased]: https://github.com/sayzard/orca-coordinator/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/sayzard/orca-coordinator/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/sayzard/orca-coordinator/compare/v0.3.0...v0.3.4
 [0.3.0]: https://github.com/sayzard/orca-coordinator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sayzard/orca-coordinator/releases/tag/v0.2.0
