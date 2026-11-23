@@ -142,18 +142,31 @@ in `~/.orca-coordinator/config.json` to use other models; see
 
 ### Turn classification
 
-Off by default. Turn it on in the board's Settings tab (or `coord setup --classifier on`). Then,
-when a session finishes a turn without a menu or permission prompt, the end of its final reply
-(the last 40 lines) is sent to the model through the local `claude` CLI, under your own Claude
-account, once per turn — including replies from other agents such as Codex. The result is cached
-in `~/.orca-coordinator/cache/turn-class.json`. Decisions become cards with the question to
-answer; optional offers and reports stay out of "Needs you". The rules take over while a result
-is pending, when the model is unavailable, and whenever the classifier is off.
+Off by default. Pick a classifier in the board's Settings tab (or
+`coord setup --classifier claude|jev|off`). Then, when a session finishes a turn without a menu or
+permission prompt, the end of its final reply (the last 40 lines) is judged once per turn —
+including replies from other agents such as Codex:
+
+| Classifier | How | Card text and buttons |
+|---|---|---|
+| **Claude Haiku** | Your local `claude` CLI, under your own Claude account | The model writes the question and up to four quick replies |
+| **Jev** ([TypeSafe AI](https://docs.typesafe.ai)) | `POST api.typesafe.ai/v1/systemone` with your API key; a decision model that returns calibrated probabilities | The question comes from the rules; Jev picks which candidate replies fit: the options the reply lists ("1. …", "A) …") plus yes / as recommended / no |
+
+Decisions become cards with the question to answer; when a short reply settles it, the card gets
+quick-reply buttons that send at once. Optional offers and reports stay out of "Needs you". The
+rules take over while a result is pending, when the provider is unavailable, and whenever the
+classifier is off. Results are cached in `~/.orca-coordinator/cache/turn-class.json`.
+
+The Jev key is entered in the Settings tab and kept in Orca's encrypted plugin secrets (the OS
+keychain), never in the coordinator's files; the board passes it to `coord` as
+`TYPESAFE_API_KEY`. `coord` run elsewhere (a terminal, the bot) without that variable uses the
+results the board already cached and sends nothing.
 
 `scripts/detection-eval.mjs` measures both on your own turns: it builds a private labeled corpus
 under `~/.orca-coordinator/eval/` (never in the repository) and reports recall, precision,
 offers flagged and false alarms on stable tune and holdout splits
-(`node scripts/detection-eval.mjs eval --model claude-haiku-5-5`). Labels follow
+(`node scripts/detection-eval.mjs eval --model claude-haiku-5-5`, or `--model jev-1.14.0` with
+`TYPESAFE_API_KEY` set). Labels follow
 [docs/detection-rubric.md](docs/detection-rubric.md);
 [docs/detection-round.md](docs/detection-round.md) describes a daily improvement round.
 

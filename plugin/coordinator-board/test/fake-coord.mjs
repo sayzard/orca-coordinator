@@ -5,7 +5,9 @@ import { basename } from 'node:path'
 
 export function run(mode, argv) {
   const args = argv.filter((a) => a !== '--json')
-  if (process.env.FAKE_COORD_LOG) appendFileSync(process.env.FAKE_COORD_LOG, JSON.stringify(args) + '\n')
+  // The Jev key reaches coord only as an environment variable; log it so tests can check that.
+  const logged = process.env.TYPESAFE_API_KEY ? [...args, `env:TYPESAFE_API_KEY=${process.env.TYPESAFE_API_KEY}`] : args
+  if (process.env.FAKE_COORD_LOG) appendFileSync(process.env.FAKE_COORD_LOG, JSON.stringify(logged) + '\n')
   const ok = (result) => console.log(JSON.stringify({ ok: true, result }))
   if (mode === 'error') return console.log(JSON.stringify({ ok: false, error: { code: 'runtime_timeout', message: 'Timed out waiting for the Orca runtime to respond.' } }))
   const status = JSON.parse(readFileSync(new URL('./status.json', import.meta.url), 'utf8'))

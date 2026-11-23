@@ -23,7 +23,8 @@ export type Card = {
   question: string
   recommendation: string
   reason: string
-  options: { label: string; reply: string }[]
+  /** `send`: a quick reply sent as soon as it is pressed (from the turn classifier). */
+  options: { label: string; reply: string; send?: boolean }[]
   needsInput: string
   priority: string
   canReply: boolean
@@ -67,8 +68,8 @@ export type BoardStatus = {
   generatedAt: number
   /** Board language from `coord setup --language`. */
   language?: string
-  /** Turn-end classification with a small model; off unless turned on. */
-  classifier?: { enabled: boolean; model: string }
+  /** Turn-end classification with a model; off unless turned on. `jevKeySet` is added by the worker. */
+  classifier?: { enabled: boolean; provider: 'claude' | 'jev'; model: string; jevKeySet?: boolean }
   managedProjects: string[]
   coordinator: { sessionId: string; agent?: string; model?: string; state: string; lastReply?: string } | null
   counts: { decisions: number; human: number; running: number; review: number; idle: number; unknown: number; sessions: number }
@@ -96,7 +97,8 @@ declare module 'orca' {
     'projects.list': { output: { ok: boolean; repos: RepoRow[]; message?: string } }
     'projects.set': { input: { ids: string[] }; output: ActionResult }
     'coordinator.start': { output: ActionResult }
-    'classifier.set': { input: { enabled: boolean }; output: ActionResult }
+    'classifier.set': { input: { provider: 'off' | 'claude' | 'jev' }; output: ActionResult }
+    'jev.key.set': { input: { key: string }; output: ActionResult }
   }
   interface PluginPanelEvents {
     'board.snapshot': Snapshot

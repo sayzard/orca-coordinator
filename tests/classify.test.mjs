@@ -7,19 +7,21 @@ import { join } from 'node:path'
 
 process.env.COORD_HOME = mkdtempSync(join(tmpdir(), 'coord-classify-'))
 
-const { parseClassification, readTurnClasses, applyTurnClasses, classifierSettings } = await import('../cli/lib/classify.mjs')
+const { parseClassification, readTurnClasses, applyTurnClasses, classifierSettings, candidateReplies, jevRequest, parseJev, classifyText } = await import('../cli/lib/classify.mjs')
+const { autoCardFor } = await import('../cli/lib/decisions.mjs')
 const { deriveSessions } = await import('../cli/lib/lanes.mjs')
 
 const ps = JSON.parse(readFileSync(new URL('./fixtures/worktree-ps.json', import.meta.url), 'utf8'))
 const byId = (sessions) => Object.fromEntries(sessions.map((s) => [s.sessionId, s]))
 const config = { classifier: { enabled: true, model: 'test-model' } }
+const settings = classifierSettings(config)
 
 /** A fake model: answers by a marker word in the reply and counts calls. */
 function fakeRun() {
   const calls = []
   const run = async (_settings, input) => {
     calls.push(input)
-    if (input.includes('LAYOUTS')) return { text: '{"label":"decision","question":"Which layout, A or B?"}' }
+    if (input.includes('LAYOUTS')) return { text: '{"label":"decision","question":"Which layout, A or B?","options":[{"label":"A","reply":"Go with A."},{"label":"B","reply":"Go with B."}]}' }
     if (input.includes('IFYOUWANT')) return { text: 'Sure: {"label":"offer","question":"ignored"}' }
     if (input.includes('BROKEN')) return { text: 'not json' }
     return { text: '{"label":"none","question":""}' }
@@ -38,8 +40,9 @@ function withReplies(replies) {
 }
 
 test('parseClassification keeps only known labels and drops questions outside decisions', () => {
-  assert.deepEqual(parseClassification('{"label":"decision","question":"Push now?"}'), { label: 'decision', question: 'Push now?' })
-  assert.deepEqual(parseClassification('ok {"label":"offer","question":"x"}'), { label: 'offer', question: '' })
+  assert.equal(parseClassification('{"label":"decision","question":"Push now?"}').question, 'Push now?')
+  assert.deepEqual(parseClassification('{"label":"decision","question":"Push now?"}').options, [])
+  assert.deepEqual(parseClassification('ok {"label":"offer","question":"x","options":[{"label":"a","reply":"b"}]}'), { label: 'offer', question: '', options: [] })
   assert.equal(parseClassification('{"label":"maybe"}'), null)
   assert.equal(parseClassification('no json'), null)
 })
@@ -56,10 +59,14 @@ test('a model decision raises a question the rules missed; offers and reports st
   assert.equal(byId(deriveSessions(data))['sess-idle'].lane, 'idle')
   const { run, calls } = fakeRun()
   const classes = await readTurnClasses(data, config, { run })
-  const s = byId(deriveSessions(applyTurnClasses(data, classes, 'test-model')))
+  const s = byId(deriveSessions(applyTurnClasses(data, classes, settings)))
   assert.equal(s['sess-idle'].lane, 'human')
   assert.equal(s['sess-idle'].attention.text, 'Which layout, A or B?')
   assert.equal(s['sess-idle'].attention.source, 'model')
+  // The model's quick replies become one-press buttons on the card.
+  const card = autoCardFor(s['sess-idle'])
+  assert.deepEqual(card.options, [{ label: 'A', reply: 'Go with A.', send: true }, { label: 'B', reply: 'Go with B.', send: true }])
+  assert.equal(card.reasonKey, 'auto.model')
   assert.equal(s['sess-chat'].turnLabel, 'offer')
   assert.notEqual(s['sess-chat'].lane, 'human')
   // Menus are structured signals: the model is never asked about them.
@@ -75,7 +82,7 @@ test('a model "none" overrides a rule match, and each turn is classified only on
   const again = await readTurnClasses(data, config, { run })
   assert.equal(calls.length, n, 'cached turns are not sent again')
   assert.equal(again['sess-question'].label, 'none')
-  const s = byId(deriveSessions(applyTurnClasses(data, first, 'test-model')))['sess-question']
+  const s = byId(deriveSessions(applyTurnClasses(data, first, settings)))['sess-question']
   assert.equal(s.attention, null)
 })
 
@@ -88,7 +95,7 @@ test('a changed reply or a new turn is classified again; an unparseable answer f
   const classes = await readTurnClasses(after, config, { run })
   assert.equal(calls.length, n + 1)
   assert.ok(classes['sess-question'].error)
-  const s = byId(deriveSessions(applyTurnClasses(after, classes, 'test-model')))['sess-question']
+  const s = byId(deriveSessions(applyTurnClasses(after, classes, settings)))['sess-question']
   assert.equal(s.attention.source, 'rule')
   assert.equal(s.attention.text, 'Shall I push?')
 })
@@ -99,4 +106,62 @@ test('excluded sessions and unmanaged projects are not classified', async () => 
   await readTurnClasses(data, { classifier: { enabled: true, model: 'other-model' } }, { run, excludeSessions: ['sess-coordinator'], projects: ['repo-alpha'] })
   assert.ok(calls.length > 0, 'managed sessions are classified')
   assert.ok(!calls.some((c) => c.includes('Coordinator report')))
+})
+
+test('quick-reply buttons are short, capped at four and need both a label and a reply', () => {
+  const r = parseClassification(JSON.stringify({ label: 'decision', question: 'q', options: [{ label: 'One very long label that goes on and on', reply: 'x' }, { label: '', reply: 'y' }, { label: 'b', reply: 'b' }, { label: 'c', reply: 'c' }, { label: 'd', reply: 'd' }, { label: 'e', reply: 'e' }] }))
+  assert.equal(r.options.length, 4)
+  assert.ok(r.options[0].label.length <= 24)
+  assert.ok(!r.options.some((o) => !o.label))
+})
+
+test('Jev candidates: the options a reply lists, then yes / as recommended / no in its language', () => {
+  const ko = candidateReplies('두 가지 안이 있습니다.\n1. 카메라를 140mm로 변경\n2. 조명만 조정\n어느 쪽으로 할까요?')
+  assert.deepEqual(ko.slice(0, 2).map((c) => c.reply), ['1번으로 진행해 주세요.', '2번으로 진행해 주세요.'])
+  assert.ok(ko.some((c) => c.reply === '추천하신 대로 진행해 주세요.'))
+  const en = candidateReplies('Options:\nA) keep the sidebar\nB) move it to the top\nWhich one?')
+  assert.deepEqual(en.slice(0, 2).map((c) => c.reply), ['Go with option A.', 'Go with option B.'])
+  assert.equal(en.at(-1).reply, "No, don't.")
+})
+
+test('a Jev request asks for the label and one yes/no question per candidate button', () => {
+  const { body, candidates } = jevRequest('Shall I push it to main?', 'jev-1.14.0')
+  assert.equal(body.model, 'jev-1.14.0')
+  assert.equal(body.questions.label.type, 'choice')
+  assert.deepEqual(Object.keys(body.questions.label.criteria), ['decision', 'offer', 'none'])
+  assert.equal(Object.keys(body.questions).length, 1 + candidates.length)
+  assert.ok(Object.entries(body.questions).filter(([k]) => k !== 'label').every(([, q]) => q.type === 'noul'))
+})
+
+test('a Jev decision keeps the buttons it finds fitting, most likely first; the question comes from the rules', () => {
+  const tail = 'Tests pass.\nShall I push it to main?'
+  const candidates = candidateReplies(tail)
+  const answers = { label: { type: 'choice', choice: 'decision', confidence: 0.9 } }
+  candidates.forEach((c, i) => (answers[`b${i}`] = { type: 'noul', noul: c.reply === 'Yes, go ahead.' ? 0.92 : c.reply === "No, don't." ? 0.71 : 0.2 }))
+  const r = parseJev({ model: 'jev-1.14.0', answers }, candidates, tail)
+  assert.equal(r.label, 'decision')
+  assert.equal(r.question, 'Shall I push it to main?')
+  assert.deepEqual(r.options.map((o) => o.reply), ['Yes, go ahead.', "No, don't."])
+  assert.deepEqual(parseJev({ answers: { label: { choice: 'offer' } } }, candidates, tail), { label: 'offer', question: '', options: [] })
+  assert.equal(parseJev({ answers: {} }, candidates, tail), null)
+})
+
+test('Jev runs only with a key; without one, cached answers still apply but nothing is sent', async () => {
+  const jevConfig = { classifier: { enabled: true, provider: 'jev' } }
+  assert.equal(classifierSettings(jevConfig, {}).ready, false)
+  const withKey = classifierSettings(jevConfig, { TYPESAFE_API_KEY: 'k' })
+  assert.equal(withKey.ready, true)
+  assert.equal(withKey.model, 'jev-1.14.0')
+  const sentBodies = []
+  const run = async (_s, body) => {
+    sentBodies.push(body)
+    return { json: { answers: { label: { choice: 'decision' }, b0: { noul: 0.9 } } } }
+  }
+  const r = await classifyText('Shall I push?', withKey, run)
+  assert.equal(r.label, 'decision')
+  assert.equal(sentBodies.length, 1)
+  const data = withReplies({ 'sess-idle': 'Plain report for jev.' })
+  let called = 0
+  await readTurnClasses(data, jevConfig, { env: {}, run: async () => (called++, { json: {} }) })
+  assert.equal(called, 0)
 })

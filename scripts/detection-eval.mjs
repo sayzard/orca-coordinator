@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { detectQuestion } from '../cli/lib/lanes.mjs'
 import { dataPath } from '../cli/lib/paths.mjs'
 import { readSignals } from '../cli/lib/signals.mjs'
-import { classifyText, classifierSettings, PROMPT_ID } from '../cli/lib/classify.mjs'
+import { classifyText, classifierSettings } from '../cli/lib/classify.mjs'
 
 export const LABELS = ['decision', 'offer', 'none']
 const REPLY_CHARS = 4000
@@ -253,10 +253,13 @@ function label(path) {
 
 /** Model labels for the labeled items, cached per model and prompt version (only new items are sent). */
 async function modelPredictions(items, model) {
-  const path = file(`model-${model}-p${PROMPT_ID}.jsonl`)
+  // `jev-…` models go to TypeSafe AI (TYPESAFE_API_KEY); anything else to the claude CLI.
+  const jev = model.startsWith('jev')
+  const settings = classifierSettings({ classifier: { enabled: true, provider: jev ? 'jev' : 'claude', ...(jev ? { jevModel: model } : { model }) } })
+  if (!settings.ready) throw new Error('no_key: set TYPESAFE_API_KEY to evaluate Jev')
+  const path = file(`model-${model}-p${settings.promptId}.jsonl`)
   const done = new Map(readJsonl(path).map((r) => [r.id, r]))
   const todo = items.filter((i) => !done.has(i.id))
-  const settings = classifierSettings({ classifier: { enabled: true, model } })
   let next = 0
   const fresh = []
   await Promise.all(
@@ -264,13 +267,13 @@ async function modelPredictions(items, model) {
       while (next < todo.length) {
         const it = todo[next++]
         const r = await classifyText(it.reply, settings)
-        if (!r.error) fresh.push({ id: it.id, label: r.label, question: r.question })
+        if (!r.error) fresh.push({ id: it.id, label: r.label, question: r.question, options: r.options || [] })
       }
     })
   )
   if (fresh.length) appendFileSync(path, fresh.map((r) => JSON.stringify(r)).join('\n') + '\n', { mode: 0o600 })
   for (const r of fresh) done.set(r.id, r)
-  return { predictions: done, failed: todo.length - fresh.length }
+  return { predictions: done, failed: todo.length - fresh.length, promptId: settings.promptId }
 }
 
 async function evaluate({ model } = {}) {
@@ -284,13 +287,13 @@ async function evaluate({ model } = {}) {
   writeFileSync(file('errors-tune.jsonl'), tune.errors.map((e) => JSON.stringify({ ...e, ...pick(items, e.id) })).join('\n') + (tune.errors.length ? '\n' : ''), { mode: 0o600 })
   const result = { at: new Date().toISOString(), corpus: items.length, rules: { tune: strip(tune), holdout: strip(holdout) }, tuneErrorsFile: file('errors-tune.jsonl') }
   if (model) {
-    const { predictions, failed } = await modelPredictions(items.filter((i) => labels.has(i.id)), model)
+    const { predictions, failed, promptId } = await modelPredictions(items.filter((i) => labels.has(i.id)), model)
     const detect = (_reply, it) => (predictions.get(it.id)?.label === 'decision' ? predictions.get(it.id).question || 'decision' : null)
     const classOf = (it) => predictions.get(it.id)?.label
     const mt = score(split('tune'), labels, detect, classOf)
     const mh = score(split('holdout'), labels, detect, classOf)
     writeFileSync(file(`errors-tune-${model}.jsonl`), mt.errors.map((e) => JSON.stringify({ ...e, predicted: classOf({ id: e.id }), ...pick(items, e.id) })).join('\n') + (mt.errors.length ? '\n' : ''), { mode: 0o600 })
-    result.model = { id: model, promptId: PROMPT_ID, failed, tune: strip(mt), holdout: strip(mh), tuneErrorsFile: file(`errors-tune-${model}.jsonl`) }
+    result.model = { id: model, promptId, failed, tune: strip(mt), holdout: strip(mh), tuneErrorsFile: file(`errors-tune-${model}.jsonl`) }
   }
   return result
 }

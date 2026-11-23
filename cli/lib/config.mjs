@@ -69,9 +69,9 @@ export function defaultConfig() {
     language: detectLanguage(),
     usageCacheSeconds: 300,
     statusCacheSeconds: 5,
-    // Turn-end classification with a small model (cli/lib/classify.mjs). Off by default: it sends
-    // the end of each finished reply to the model; turn it on in Settings or with `coord setup --classifier on`.
-    classifier: { enabled: false, model: 'claude-haiku-5-5' }
+    // Turn-end classification with a model (cli/lib/classify.mjs). Off by default: it sends the end
+    // of each finished reply to the provider. Set it in Settings or with `coord setup --classifier`.
+    classifier: { enabled: false, provider: 'claude', model: 'claude-haiku-5-5', jevModel: 'jev-1.14.0' }
   }
 }
 

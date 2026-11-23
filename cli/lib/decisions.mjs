@@ -27,8 +27,9 @@ export function autoCardFor(session) {
     question: a.text,
     recommendation: '',
     reason: a.kind === 'menu' ? 'A menu is open in the session. Pick an option there.' : a.kind === 'permission' ? 'Waiting for a permission decision. Approve or deny it in the session.' : 'The last reply ends with a question. Request a digest for a suggested reply.',
-    reasonKey: `auto.${a.kind}`,
-    options: [],
+    reasonKey: a.source === 'model' && a.kind === 'question' ? 'auto.model' : `auto.${a.kind}`,
+    // Quick replies from the turn classifier: pressing one sends it at once.
+    options: (a.options || []).map((o) => ({ label: o.label, reply: o.reply, send: true })),
     needsInput: '',
     priority: a.kind === 'question' ? 'reply' : a.kind,
     canReply: a.canReply,

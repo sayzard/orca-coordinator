@@ -8,13 +8,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Turn classification with a small model, off by default and turned on in the Settings tab (or
-  `coord setup --classifier on`): each finished turn without a menu or permission prompt
-  is classified once (cached) as a decision for the person, an optional offer, or a report, using
-  Claude Haiku through the local `claude` CLI. Decisions become cards with the question to answer;
-  offers and reports no longer show under "Needs you". The rules remain the fallback. On a first set of 300 turns labeled by
-  a model judge (not yet checked by a person) it found 97–98% of decisions where the rules found
-  76–78%, at 91–97% precision (tune / holdout split).
+- Turn classification, off by default and chosen in the Settings tab (or
+  `coord setup --classifier claude|jev|off`): each finished turn without a menu or permission
+  prompt is classified once (cached) as a decision for the person, an optional offer, or a report.
+  Two classifiers: Claude Haiku through the local `claude` CLI, or Jev, TypeSafe AI's decision
+  model, with an API key entered in Settings and kept in Orca's encrypted plugin secrets
+  (`secrets:own`). Decisions become cards with the question to answer; offers and reports no
+  longer show under "Needs you". The rules remain the fallback. On a first set of 300 turns
+  labeled by a model judge (not yet checked by a person) Haiku found 97% of decisions where the
+  rules found 76–78%, at 93–97% precision (tune / holdout split).
+- Quick-reply buttons on "My decisions" cards: when a short answer settles the question (yes/no,
+  one of the listed options, the agent's recommendation), the classifier adds up to four buttons
+  that send the reply at once. Haiku writes them; Jev picks them from the options the reply lists
+  plus yes / as recommended / no.
 - A way to measure and tune question detection on real turns:
   `scripts/detection-eval.mjs` builds a private corpus of finished turns (Claude Code and Codex
   transcripts plus board signals) under the coordinator home, hands out items to label, and

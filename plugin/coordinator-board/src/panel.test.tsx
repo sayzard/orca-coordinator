@@ -129,16 +129,46 @@ test('a closed coordinator is flagged and can be restarted from Settings', async
   assert.ok(p.find({ text: 'Coordinator started: claude/claude-opus-5-5' }))
 })
 
-test('turn classification is off by default and can be turned on in Settings', async () => {
-  const { h, sent } = host({ 'classifier.set': (input: unknown) => (sent.push({ name: 'classifier.set', input }), { ok: true, key: 'msg.classifierOn', message: 'on' }) })
+test('Settings picks the classifier and takes a Jev key', async () => {
+  const offStatus = { ...status, classifier: { enabled: false, provider: 'claude', model: 'claude-haiku-5-5', jevKeySet: false } }
+  const { h, sent } = host({
+    'board.snapshot': () => ({ ok: true, status: offStatus, at: 1 }),
+    'classifier.set': (input: unknown) => (sent.push({ name: 'classifier.set', input }), { ok: true, key: 'msg.classifierOn', message: 'on' }),
+    'jev.key.set': (input: unknown) => (sent.push({ name: 'jev.key.set', input }), { ok: true, key: 'msg.jevKeySaved', message: 'saved' })
+  })
   const p = await mount(panel, { host: h, locale: 'en-US' })
   await p.select({ label: 'Board' }, 'settings')
-  const box = p.find({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' })
-  assert.ok(box)
-  assert.equal(p.valueOf({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' }), false)
-  await p.toggle({ label: 'Judge finished turns with a small model (claude-haiku-5-5)' })
-  assert.deepEqual(sent.filter((s) => s.name === 'classifier.set').map((s) => s.input), [{ enabled: true }])
-  assert.ok(p.find({ text: 'Turn classification is on.' }))
+  assert.equal(p.valueOf({ label: 'Classifier' }), 'off')
+  assert.equal(p.find({ label: 'TypeSafe AI API key' }), null, 'no key field while Jev is not chosen')
+  await p.select({ label: 'Classifier' }, 'jev')
+  assert.deepEqual(sent.filter((s) => s.name === 'classifier.set').map((s) => s.input), [{ provider: 'jev' }])
+  assert.ok(p.find({ text: 'Saved: turn classification is on.' }))
+})
+
+test('the Jev key field shows once Jev is chosen and clears after saving', async () => {
+  const jevStatus = { ...status, classifier: { enabled: true, provider: 'jev', model: 'jev-1.14.0', jevKeySet: false } }
+  const { h, sent } = host({
+    'board.snapshot': () => ({ ok: true, status: jevStatus, at: 1 }),
+    'jev.key.set': (input: unknown) => (sent.push({ name: 'jev.key.set', input }), { ok: true, key: 'msg.jevKeySaved', message: 'saved' })
+  })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'settings')
+  assert.ok(p.find({ text: 'No key yet: Jev cannot run until you save one.' }))
+  await p.type({ label: 'TypeSafe AI API key' }, 'ts-key')
+  await p.press({ text: 'Save key' })
+  assert.deepEqual(sent.filter((s) => s.name === 'jev.key.set').map((s) => s.input), [{ key: 'ts-key' }])
+  assert.equal(p.valueOf({ label: 'TypeSafe AI API key' }), '')
+  assert.ok(p.find({ text: 'Saved the Jev key.' }))
+})
+
+test('quick replies from the classifier send at once', async () => {
+  const quickCard = { ...coordinatorCard, id: 'auto:sess-quick', source: 'auto', recommendation: '', options: [{ label: 'Push', reply: 'Yes, push it.', send: true }, { label: 'Not yet', reply: "Don't push yet.", send: true }] }
+  const quickStatus = { ...status, decisions: [quickCard], counts: { ...status.counts, decisions: 1 } }
+  const { h, sent } = host({ 'board.snapshot': () => ({ ok: true, status: quickStatus, at: 1 }) })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.press({ testId: 'quick:auto:sess-quick:0' })
+  const send = sent.filter((s) => s.name === 'decision.send').map((s) => s.input as { id: string; text: string })
+  assert.deepEqual(send.map((x) => [x.id, x.text]), [['auto:sess-quick', 'Yes, push it.']])
 })
 
 test('a worker failure shows a retry callout', async () => {

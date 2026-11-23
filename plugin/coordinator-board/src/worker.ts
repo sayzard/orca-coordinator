@@ -14,6 +14,7 @@ const DEBOUNCE_MS = 3000
 const POLL_MS = 45_000
 // Chat sessions do not send agent status events, so poll faster while anything is running.
 const FAST_POLL_MS = 10_000
+const JEV_SECRET = 'typesafeApiKey'
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 
 export function deactivate(): void {
@@ -23,9 +24,9 @@ export function deactivate(): void {
 
 type Envelope = { ok: true; result: any } | { ok: false; error: { code: string; message: string } }
 
-function exec(file: string, args: string[], timeoutMs: number): Promise<Envelope> {
+function exec(file: string, args: string[], timeoutMs: number, extraEnv: Record<string, string> = {}): Promise<Envelope> {
   return new Promise((resolve) => {
-    execFile(file, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: process.env }, (error, stdout, stderr) => {
+    execFile(file, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, ...extraEnv } }, (error, stdout, stderr) => {
       const text = String(stdout || '').trim()
       try {
         const parsed = JSON.parse(text)
@@ -53,12 +54,19 @@ export default function activate(orca: OrcaWorkerApi): void {
   let inflight: Promise<Snapshot> | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
 
+  /** The Jev (TypeSafe AI) API key lives in Orca's encrypted plugin secrets, never in coord's files. */
+  async function jevKey(): Promise<string | null> {
+    return ((await orca.secrets.get(JEV_SECRET).catch(() => null)) || '').trim() || null
+  }
+
   async function coord(args: string[], timeoutMs = 60_000): Promise<Envelope> {
+    const key = await jevKey()
+    const extra: Record<string, string> = key ? { TYPESAFE_API_KEY: key } : {}
     const setting = String((await orca.settings.get('coordPath').catch(() => '')) || '').trim()
-    if (setting && /\.m?js$/.test(setting)) return exec(process.execPath, [setting, ...args, '--json'], timeoutMs)
-    if (setting) return exec(setting, [...args, '--json'], timeoutMs)
-    if (existsSync(REPO_COORD)) return exec(process.execPath, [REPO_COORD, ...args, '--json'], timeoutMs)
-    return exec('coord', [...args, '--json'], timeoutMs)
+    if (setting && /\.m?js$/.test(setting)) return exec(process.execPath, [setting, ...args, '--json'], timeoutMs, extra)
+    if (setting) return exec(setting, [...args, '--json'], timeoutMs, extra)
+    if (existsSync(REPO_COORD)) return exec(process.execPath, [REPO_COORD, ...args, '--json'], timeoutMs, extra)
+    return exec('coord', [...args, '--json'], timeoutMs, extra)
   }
 
   /** Worker text language: the plugin's `language` setting, else the board language, else the system locale. */
@@ -114,10 +122,12 @@ export default function activate(orca: OrcaWorkerApi): void {
   }
 
   async function refresh(fresh = false): Promise<Snapshot> {
-    if (inflight) return inflight
+    // A fresh read asked for during another read (e.g. right after a setting changed) runs after it.
+    if (inflight) return fresh ? inflight.catch(() => null).then(() => refresh(true)) : inflight
     inflight = (async () => {
       const env = await coord(fresh ? ['status', '--fresh'] : ['status'])
       const snap: Snapshot = env.ok ? { ok: true, status: env.result as BoardStatus, at: Date.now() } : { ok: false, code: env.error.code, message: env.error.message, at: Date.now() }
+      if (snap.ok) snap.status.classifier = { ...(snap.status.classifier || { enabled: false, provider: 'claude', model: 'claude-haiku-5-5' }), jevKeySet: Boolean(await jevKey()) }
       last = snap
       orca.panels.post('board.snapshot', snap)
       if (snap.ok) {
@@ -257,10 +267,22 @@ export default function activate(orca: OrcaWorkerApi): void {
     return result(env, (r) => (r.projects.length ? { key: 'msg.projectsSaved', params: { n: r.projects.length } } : { key: 'msg.projectsAll' }))
   })
 
-  orca.panels.handle('classifier.set', async ({ enabled }) => {
-    const env = await coord(['setup', '--classifier', enabled ? 'on' : 'off'])
+  orca.panels.handle('classifier.set', async ({ provider }) => {
+    const env = await coord(['setup', '--classifier', provider])
     void refresh(true)
-    return result(env, () => ({ key: enabled ? 'msg.classifierOn' : 'msg.classifierOff' }))
+    return result(env, () => ({ key: provider === 'off' ? 'msg.classifierOff' : 'msg.classifierOn' }))
+  })
+
+  orca.panels.handle('jev.key.set', async ({ key }) => {
+    const value = String(key || '').trim()
+    try {
+      if (value) await orca.secrets.set(JEV_SECRET, value)
+      else await orca.secrets.delete(JEV_SECRET)
+    } catch (e: any) {
+      return { ok: false, code: 'secret_failed', message: String(e?.message || e).slice(0, 300) }
+    }
+    void refresh(true)
+    return done(value ? 'msg.jevKeySaved' : 'msg.jevKeyCleared')
   })
 
   orca.panels.handle('coordinator.start', async () => {

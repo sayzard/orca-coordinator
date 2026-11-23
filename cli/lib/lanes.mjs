@@ -81,10 +81,10 @@ function attentionFor(agent) {
   const c = agent.turnClass
   if (agent.state === 'waiting') {
     const text = (c?.label === 'decision' && c.question) || detectQuestion(replyOf(agent)) || cleanMenuText(ps.message) || 'Waiting for input.'
-    return { kind: 'question', text, canReply: true, source: c ? 'model' : 'rule' }
+    return { kind: 'question', text, canReply: true, source: c ? 'model' : 'rule', options: c?.label === 'decision' ? c.options || [] : [] }
   }
   if (agent.state === 'done') {
-    if (c) return c.label === 'decision' ? { kind: 'question', text: c.question || detectQuestion(replyOf(agent)) || lastLine(replyOf(agent)), canReply: true, source: 'model' } : null
+    if (c) return c.label === 'decision' ? { kind: 'question', text: c.question || detectQuestion(replyOf(agent)) || lastLine(replyOf(agent)), canReply: true, source: 'model', options: c.options || [] } : null
     const q = detectQuestion(replyOf(agent))
     if (q) return { kind: 'question', text: q, canReply: true, source: 'rule' }
   }

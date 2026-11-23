@@ -79,15 +79,29 @@ test('requests, digest and coordinator handoff reach coord', async () => {
   await worker.deactivate()
 })
 
-test('the Settings toggle turns turn classification on and off through coord setup', async () => {
+test('Settings picks the classifier through coord setup', async () => {
   const { host, calls } = setup()
   const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
-  const on = await worker.request('classifier.set', { enabled: true })
-  assert.equal(on.key, 'msg.classifierOn')
-  const off = await worker.request('classifier.set', { enabled: false })
-  assert.equal(off.key, 'msg.classifierOff')
+  assert.equal((await worker.request('classifier.set', { provider: 'jev' })).key, 'msg.classifierOn')
+  assert.equal((await worker.request('classifier.set', { provider: 'off' })).key, 'msg.classifierOff')
   const setups = calls().filter((a) => a[0] === 'setup' && a.includes('--classifier'))
-  assert.deepEqual(setups.map((a) => a[a.indexOf('--classifier') + 1]), ['on', 'off'])
+  assert.deepEqual(setups.map((a) => a[a.indexOf('--classifier') + 1]), ['jev', 'off'])
+  await worker.deactivate()
+})
+
+test('the Jev key is kept in plugin secrets and reaches coord only as an environment variable', async () => {
+  const { host, calls } = setup()
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const saved = await worker.request('jev.key.set', { key: '  ts-secret-1  ' })
+  assert.equal(saved.key, 'msg.jevKeySaved')
+  const snap = await worker.request('board.snapshot', { fresh: true })
+  assert.equal(snap.ok && snap.status.classifier?.jevKeySet, true)
+  const status = calls().filter((a) => a[0] === 'status').pop() || []
+  assert.ok(status.includes('env:TYPESAFE_API_KEY=ts-secret-1'))
+  assert.ok(!calls().some((a) => a.some((x) => x === 'ts-secret-1')), 'the key is never a command-line argument')
+  assert.equal((await worker.request('jev.key.set', { key: '' })).key, 'msg.jevKeyCleared')
+  const after = await worker.request('board.snapshot', { fresh: true })
+  assert.equal(after.ok && after.status.classifier?.jevKeySet, false)
   await worker.deactivate()
 })
 

@@ -104,6 +104,9 @@
     },
     {
       "kind": "notifications:show"
+    },
+    {
+      "kind": "secrets:own"
     }
   ],
   "author": {

@@ -6,7 +6,7 @@ import { readWorktrees, readAgentList, readUsage, readFinalReplies } from './dat
 import { readRequests, closedWorktrees } from './requests.mjs'
 import { readHistory } from './store.mjs'
 import { watchTurns } from './signals.mjs'
-import { readTurnClasses, applyTurnClasses } from './classify.mjs'
+import { readTurnClasses, applyTurnClasses, classifierSettings } from './classify.mjs'
 
 export async function loadSessions(config, { fresh = false } = {}) {
   const [ps, agentList] = await Promise.all([readWorktrees(config, { fresh }), readAgentList(config, { fresh }).catch(() => null)])
@@ -14,7 +14,7 @@ export async function loadSessions(config, { fresh = false } = {}) {
   const finals = await readFinalReplies(ps).catch(() => ({}))
   const withFinals = applyFinalReplies(ps, finals)
   const classes = await readTurnClasses(withFinals, config, { projects: config.projects || [], excludeSessions: exclude }).catch(() => ({}))
-  const sessions = deriveSessions(applyTurnClasses(withFinals, classes), { agentList, projects: config.projects || [], excludeSessions: exclude })
+  const sessions = deriveSessions(applyTurnClasses(withFinals, classes, classifierSettings(config)), { agentList, projects: config.projects || [], excludeSessions: exclude })
   const closed = closedWorktrees()
   // A finished, verified request's worker is not waiting for review any more.
   const settled = settleHandled(sessions).map((s) => (s.lane === 'review' && closed.has(s.worktreeId) ? { ...s, lane: 'idle' } : s))
@@ -45,7 +45,11 @@ export async function buildStatus(config, { fresh = false, project = null } = {}
   return {
     generatedAt: Date.now(),
     language: config.language || 'en',
-    classifier: { enabled: Boolean(config.classifier?.enabled), model: config.classifier?.model || 'claude-haiku-5-5' },
+    classifier: {
+      enabled: Boolean(config.classifier?.enabled),
+      provider: config.classifier?.provider === 'jev' ? 'jev' : 'claude',
+      model: config.classifier?.provider === 'jev' ? config.classifier?.jevModel || 'jev-1.14.0' : config.classifier?.model || 'claude-haiku-5-5'
+    },
     managedProjects: config.projects || [],
     coordinator,
     counts: { decisions: cards.length, ...totals, sessions: sessions.length },

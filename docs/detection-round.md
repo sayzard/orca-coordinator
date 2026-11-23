@@ -54,7 +54,11 @@ corpus is private and lives in `~/.orca-coordinator/eval/`; the script below rea
    item on the next run. Then, if time is left, improve the rules from `errors-tune.jsonl` the
    same way.
    Once a week (Mondays), also run `eval --model claude-sonnet-5-5` and report whether the
-   difference would justify its cost.
+   difference would justify its cost. When `TYPESAFE_API_KEY` is set in your environment, also
+   run `eval --model jev-1.14.0` and report Jev beside Haiku; without it, skip Jev (its key lives in
+   the board's encrypted secrets, which workers cannot read).
+   Check a sample of the quick-reply buttons too: a button must fully answer the question and
+   never stand in for something the person has to type or do themselves.
 6. **Acceptance**, all required:
    - for the classifier and for the rules: holdout decision recall does not drop and holdout
      `none` false-alarm rate does not rise;

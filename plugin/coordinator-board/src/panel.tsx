@@ -16,11 +16,13 @@ import {
   Heading,
   IconButton,
   Image,
+  Input,
   List,
   ListItem,
   Markdown,
   plugin,
   Progress,
+  RadioGroup,
   read,
   RelativeTime,
   Row,
@@ -63,6 +65,7 @@ const kanbanProject = atom('kanban-project', 'all', { persist: 'plugin' })
 const expandedColumns = atom({} as Record<string, boolean>)
 const repos = atom<RepoRow[] | null>(null)
 const picked = atom<Record<string, boolean>>({})
+const jevKeyDraft = atom('')
 
 function lang(): Lang {
   return pickLang(env.locale)
@@ -172,11 +175,27 @@ function DecisionCard({ card }: { card: Card }) {
           <Stack gap="xs">
             {card.options.length ? (
               <Row gap="xs" wrap>
-                {card.options.map((o, i) => (
-                  <Button key={`opt:${card.id}:${i}`} size="xs" variant="outline" onPress={() => setDraft(card.id, o.reply)}>
-                    {o.label}
-                  </Button>
-                ))}
+                {card.options.map((o, i) =>
+                  o.send ? (
+                    // A quick reply from the turn classifier: one press sends it.
+                    <Button
+                      key={`quick:${card.id}:${i}`}
+                      size="xs"
+                      tone="accent"
+                      variant="outline"
+                      icon="next"
+                      disabled={isBusy || card.stale}
+                      tooltip={t(L, 'quick.tip', { reply: o.reply })}
+                      onPress={() => act(key, () => plugin.request('decision.send', { id: card.id, text: o.reply, fingerprint: card.evidence?.fingerprint || null }, { timeoutMs: 90_000 }))}
+                    >
+                      {o.label}
+                    </Button>
+                  ) : (
+                    <Button key={`opt:${card.id}:${i}`} size="xs" variant="outline" onPress={() => setDraft(card.id, o.reply)}>
+                      {o.label}
+                    </Button>
+                  )
+                )}
               </Row>
             ) : null}
             <Textarea key={`reply:${card.id}`} label={t(L, 'reply.label', { title: target?.title || card.id })} labelHidden rows={3} value={draft} placeholder={t(L, 'reply.placeholder')} onChange={(v) => setDraft(card.id, v)} />
@@ -522,6 +541,65 @@ function RequestTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
   )
 }
 
+function ClassifierSettings({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
+  const L = lang()
+  const c = snap.status.classifier
+  const current = !c?.enabled ? 'off' : c.provider === 'jev' ? 'jev' : 'claude'
+  const b = Boolean(read(busy).classifier)
+  const kb = Boolean(read(busy).jevKey)
+  const draft = read(jevKeyDraft)
+  return (
+    <Stack gap="xs">
+      <Heading level={3}>{t(L, 'settings.classifier')}</Heading>
+      <Text size="sm" muted>
+        {t(L, 'settings.classifierHint')}
+      </Text>
+      <RadioGroup
+        label={t(L, 'settings.classifierProvider')}
+        value={current}
+        disabled={b}
+        options={[
+          { value: 'off', label: t(L, 'classifier.off'), description: t(L, 'classifier.offHint') },
+          { value: 'claude', label: t(L, 'classifier.claude'), description: t(L, 'classifier.claudeHint') },
+          { value: 'jev', label: t(L, 'classifier.jev'), description: t(L, 'classifier.jevHint') }
+        ]}
+        onChange={(v) => act('classifier', () => plugin.request('classifier.set', { provider: v as 'off' | 'claude' | 'jev' }))}
+      />
+      <Note id="classifier" />
+      {current === 'jev' || c?.jevKeySet ? (
+        <Stack gap="xs">
+          <Text size="sm" tone={c?.jevKeySet ? 'success' : 'warning'}>
+            {t(L, c?.jevKeySet ? 'jevKey.set' : 'jevKey.missing')}
+          </Text>
+          <Input label={t(L, 'jevKey.label')} type="password" value={draft} placeholder={t(L, 'jevKey.placeholder')} onChange={(v) => set(jevKeyDraft, v)} />
+          <Row gap="xs" wrap>
+            <Button
+              size="xs"
+              tone="accent"
+              disabled={kb || !draft.trim()}
+              onPress={() =>
+                act('jevKey', async () => {
+                  const r = await plugin.request('jev.key.set', { key: draft })
+                  if (r.ok) set(jevKeyDraft, '')
+                  return r
+                })
+              }
+            >
+              {t(L, 'jevKey.save')}
+            </Button>
+            {c?.jevKeySet ? (
+              <Button size="xs" variant="ghost" disabled={kb} onPress={() => act('jevKey', () => plugin.request('jev.key.set', { key: '' }))}>
+                {t(L, 'jevKey.clear')}
+              </Button>
+            ) : null}
+          </Row>
+          <Note id="jevKey" />
+        </Stack>
+      ) : null}
+    </Stack>
+  )
+}
+
 function SettingsTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
   const L = lang()
   const list = read(repos)
@@ -558,17 +636,7 @@ function SettingsTab({ snap }: { snap: Extract<Snapshot, { ok: true }> }) {
         )}
         <Note id="coordinator" />
       </Stack>
-      <Stack gap="xs">
-        <Heading level={3}>{t(L, 'settings.classifier')}</Heading>
-        <Checkbox
-          label={t(L, 'settings.classifierLabel', { model: snap.status.classifier?.model || 'claude-haiku-5-5' })}
-          description={t(L, 'settings.classifierHint')}
-          checked={Boolean(snap.status.classifier?.enabled)}
-          disabled={Boolean(read(busy).classifier)}
-          onChange={(v) => act('classifier', () => plugin.request('classifier.set', { enabled: v }))}
-        />
-        <Note id="classifier" />
-      </Stack>
+      <ClassifierSettings snap={snap} />
       <Stack gap="xs">
         <Heading level={3}>{t(L, 'settings.usage')}</Heading>
         {snap.status.usage

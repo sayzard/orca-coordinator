@@ -48,7 +48,7 @@ Decision cards
 Setup
   coord setup --show | --projects <repo,...> | --add <repo> | --remove <repo>
               | --reserve <0-90> | --exclude <agent,...> | --language <en|ko|...>
-              | --classifier off|on|<model>                 Turn-end classification with a small model
+              | --classifier off|on|claude|jev|<model>      Turn-end classification with a model
   coord coordinator start [--agent claude|codex] | set --session <orcaSessionId> | show
   coord board ensure                                  Find or create the board's mailbox terminal
 `
@@ -297,11 +297,16 @@ async function main() {
         if (values.language) c.language = values.language.trim().toLowerCase()
         if (values.classifier !== undefined) {
           const v = values.classifier.trim()
-          c.classifier = v === 'off' ? { ...(c.classifier || {}), enabled: false } : { ...(c.classifier || {}), enabled: true, ...(v && v !== 'on' ? { model: v } : {}) }
+          const cur = c.classifier || {}
+          if (v === 'off') c.classifier = { ...cur, enabled: false }
+          else if (v === 'on' || v === '') c.classifier = { ...cur, enabled: true }
+          else if (v === 'claude' || v === 'jev') c.classifier = { ...cur, enabled: true, provider: v }
+          else if (v.startsWith('jev-')) c.classifier = { ...cur, enabled: true, provider: 'jev', jevModel: v }
+          else c.classifier = { ...cur, enabled: true, provider: 'claude', model: v }
         }
         return c
       })
-      return out(next, json, `Saved. ${next.projects.length} managed projects (none = all), usage reserve ${next.reservePercent}%, language ${next.language}, turn classifier ${next.classifier?.enabled === false ? 'off' : next.classifier?.model}`)
+      return out(next, json, `Saved. ${next.projects.length} managed projects (none = all), usage reserve ${next.reservePercent}%, language ${next.language}, turn classifier ${!next.classifier?.enabled ? 'off' : next.classifier?.provider === 'jev' ? next.classifier?.jevModel || 'jev' : next.classifier?.model}`)
     }
     case 'coordinator': {
       if (sub === 'show' || !sub) return out(config.coordinator, json, config.coordinator ? JSON.stringify(config.coordinator, null, 2) : 'no coordinator (coord coordinator start)')

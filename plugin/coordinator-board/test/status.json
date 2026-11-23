@@ -1,6 +1,11 @@
 {
  "generatedAt": 1795430000000,
  "managedProjects": [],
+ "classifier": {
+  "enabled": false,
+  "provider": "claude",
+  "model": "claude-haiku-5-5"
+ },
  "coordinator": {
   "sessionId": "sess-coordinator",
   "agent": "claude",
