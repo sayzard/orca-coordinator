@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A long final reply ending with a question shows under "Needs you" again. `orca agent read` cuts
+  long entries off ("… (truncated)"), and that partial reading replaced the full message Orca
+  reported, so the question at the end was lost; cut-off readings are now ignored.
 - A session whose turn has ended while a subagent is still working stays under "Running": the
   agent carries on when the subagent reports back. Only a background shell on its own lets the
   finished turn count.

@@ -114,11 +114,16 @@ export function needsFinalReply(agent) {
   return Boolean(a.orcaSessionId) && (a.state === 'done' || a.state === 'waiting')
 }
 
+// `orca agent read` cuts long entries (about 1,200 characters) and ends them with "… (truncated)".
+// Such a reading holds only the start of the reply, never the question at its end.
+const TRUNCATED_READ = /…\s*\(truncated\)\s*$/
+
 /**
  * Orca's `lastAssistantMessage` can be the first text block of a turn (seen for chat sessions),
  * so a question at the end of the real final reply is missed. Replace it with the final reply
  * read from the transcript when that reading belongs to the same turn. It goes in `finalReply`, not
  * over `lastAssistantMessage`, so card fingerprints do not change when the reading arrives.
+ * A cut-off reading is not used: `lastAssistantMessage` then has more of the reply's end.
  * @param {object} ps result of `orca worktree ps --json`
  * @param {Record<string, {key: string, text: string}>} finals sessionId -> final reply
  */
@@ -130,7 +135,7 @@ export function applyFinalReplies(ps, finals = {}) {
       ...ws,
       agents: (ws.agents || []).map((a) => {
         const f = finals[a.orcaSessionId]
-        return f && f.text && f.key === turnKey(a) ? { ...a, finalReply: f.text } : a
+        return f && f.text && f.key === turnKey(a) && !TRUNCATED_READ.test(f.text) ? { ...a, finalReply: f.text } : a
       })
     }))
   }

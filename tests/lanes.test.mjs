@@ -100,6 +100,18 @@ test('a question in the final reply counts even when Orca reports an earlier tex
   assert.equal(s.fingerprint, byId(deriveSessions(clone))['sess-chat'].fingerprint)
 })
 
+// Seen live: a long reply ending "1번부터 시작할까요? … 알려 주세요." showed as idle, because the
+// transcript reading was cut off mid-reply and replaced the full message Orca reported.
+test('a cut-off transcript reading does not hide the question at the end of the reply', () => {
+  const clone = structuredClone(ps)
+  const chat = clone.worktrees[1].agents[2]
+  Object.assign(chat, { state: 'done', lastAssistantMessage: 'Long report.\n\nShall I start with step 1?\n\nThe report is in Reports/README.md.', activity: { ...chat.activity, unread: false } })
+  const finals = { 'sess-chat': { key: turnKey(chat), text: 'Long report.\n\nThe remaining gap is the eye size, which you put on hold\n… (truncated)' } }
+  const s = byId(deriveSessions(applyFinalReplies(clone, finals)))['sess-chat']
+  assert.equal(s.lane, 'human')
+  assert.equal(s.attention.text, 'Shall I start with step 1?')
+})
+
 test('a final reply from an earlier turn is ignored', () => {
   const clone = structuredClone(ps)
   const chat = clone.worktrees[1].agents[2]
