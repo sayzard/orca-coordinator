@@ -48,10 +48,12 @@ export default function activate(orca: OrcaWorkerApi): void {
     return exec('coord', [...args, '--json'], timeoutMs)
   }
 
-  /** UI language: the plugin's `language` setting, else the system locale. */
+  /** Worker text language: the plugin's `language` setting, else the board language, else the system locale. */
   async function lang(): Promise<Lang> {
     const setting = String((await orca.settings.get('language').catch(() => 'auto')) || 'auto')
-    return setting === 'auto' ? pickLang(Intl.DateTimeFormat().resolvedOptions().locale) : pickLang(setting)
+    if (setting !== 'auto') return pickLang(setting)
+    const board = last?.ok ? last.status.language : undefined
+    return pickLang(board || Intl.DateTimeFormat().resolvedOptions().locale)
   }
 
   /** Success carries a message key the panel renders in its own language; errors carry Orca's code. */

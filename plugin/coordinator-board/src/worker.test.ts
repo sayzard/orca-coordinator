@@ -124,3 +124,19 @@ test('the status bar follows the language setting', async () => {
   assert.ok(bar.some((p) => p.text === '내 결정 3'))
   await worker.deactivate()
 })
+
+test('auto language follows the board language from coord status', async () => {
+  const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
+  process.env.FAKE_COORD_LOG = log
+  process.env.FAKE_COORD_LANGUAGE = 'ko'
+  const host = mockHost({
+    settings: { coordPath: fake('fake-coord.mjs'), notify: false, language: 'auto' },
+    results: { 'statusBar.update': { ok: true }, 'notifications.show': { delivered: true }, 'commands.run': { ran: true } }
+  })
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  await worker.request('board.snapshot', { fresh: true })
+  const bar = host.callsOf('statusBar.update') as { text?: string }[]
+  assert.ok(bar.some((p) => p.text === '내 결정 3'))
+  delete process.env.FAKE_COORD_LANGUAGE
+  await worker.deactivate()
+})

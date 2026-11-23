@@ -18,7 +18,7 @@ in the repository's `coord` CLI (`../../cli/coord.mjs`); this plugin shows it an
 |---|---|---|
 | `coordPath` | empty | Path to `coord`. Empty uses this repository's `cli/coord.mjs`, then `coord` on `PATH`. |
 | `notify` | on | Desktop notification when a menu, permission prompt or "now" card appears. |
-| `language` | auto | Language of the status bar and notifications (`auto`, `en`, `ko`). |
+| `language` | auto | Language of the status bar and notifications (`auto`, `en`, `ko`). `auto` uses the board language set with `coord setup --language`. |
 
 ## Develop
 

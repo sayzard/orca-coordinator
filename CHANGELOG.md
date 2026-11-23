@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The status bar and notifications follow the board language (`coord setup --language`) when the
+  plugin's language setting is `auto`, instead of the system locale.
+
 ## [0.2.0] - 2026-11-23
 
 First public release.

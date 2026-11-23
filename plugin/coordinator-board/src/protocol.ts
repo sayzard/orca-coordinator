@@ -62,6 +62,8 @@ export type UsageRow = {
 
 export type BoardStatus = {
   generatedAt: number
+  /** Board language from `coord setup --language`. */
+  language?: string
   managedProjects: string[]
   coordinator: { sessionId: string; agent?: string; model?: string; state: string; lastReply?: string } | null
   counts: { decisions: number; human: number; running: number; review: number; idle: number; unknown: number; sessions: number }

@@ -9,6 +9,7 @@ export function run(mode, argv) {
   const ok = (result) => console.log(JSON.stringify({ ok: true, result }))
   if (mode === 'error') return console.log(JSON.stringify({ ok: false, error: { code: 'runtime_timeout', message: 'Timed out waiting for the Orca runtime to respond.' } }))
   const status = JSON.parse(readFileSync(new URL('./status.json', import.meta.url), 'utf8'))
+  if (process.env.FAKE_COORD_LANGUAGE) status.language = process.env.FAKE_COORD_LANGUAGE
   if (mode === 'ask') {
     const c = status.decisions.find((d) => d.source === 'coordinator')
     c.askMessageId = 'msg_ask1'
