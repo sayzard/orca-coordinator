@@ -8,22 +8,39 @@
 import { createHash } from 'node:crypto'
 
 const QUESTION_PATTERNS = [
-  /\?\s*$/,
   // Korean questions ("shall I…?", "which way…?").
-  /할까요|하시겠|원하시|괜찮을까|좋을까요|어떨까요|어떻게\s*할|진행할까|어느\s*(쪽|것|안)으로/,
-  // Korean requests to decide or reply: "정해/골라/알려/말씀해/선택해/결정해/… 주세요 · 주시면 · 주십시오".
-  /(정해|골라|알려|말씀해|선택해|결정해|확인해|승인해|답해|지정해|판단해|검토해)\s*주(세요|시면|십시오|실래요|시겠어요|시겠습니까|시길)/,
+  /할까요|하시겠|괜찮을까|좋을까요|어떨까요|어떻게\s*할|진행할까|어느\s*(쪽|것|안)으로|원하시(나요|는지|는\s*(쪽|것|방향))/,
+  // Korean requests to decide, reply or act: "정해/골라/알려/말씀해/… 주세요 · 주시면 · 주십시오",
+  // and things only the person can do ("실행해/입력해/넣어/눌러/허용해 주세요").
+  /(정해|골라|알려|말씀해|선택해|결정해|확인해|승인해|답해|지정해|판단해|검토해|실행해|입력해|넣어|눌러|허용해|보내)\s*주(세요|시면|십시오|실래요|시겠어요|시겠습니까|시길)/,
+  // "Say the word": '"시작"이라고 해 주세요'.
+  /라고\s*(해|말씀해|입력해)\s*주(세요|십시오)/,
   /\b(shall i|should i|would you like|do you want|please confirm|let me know|tell me (which|whether|if)|which (one|option|would you)|can you confirm|okay to proceed|your call|up to you)\b/i
 ]
 
-// Lines that flag a decision for the person ("결정이 필요한 것: …", "Decision needed: …"),
-// unless they say none is needed ("결정 불필요", "no decision needed").
+// Lines that flag a decision for the person ("결정이 필요한 것: …", "정해 주실 것이 있습니다",
+// "Decision needed: …"), unless they say none is needed ("결정 불필요", "no decision needed").
 const DECISION_MARKER =
-  /(결정|선택|판단|승인)(이|을|를)?\s*(필요|해\s*주셔야|하셔야)|결정할\s*(것|사항|부분)|결정\s*사항|\b(decisions? (needed|required)|needs? your (decision|input|approval)|for you to decide|you('ll| will)? need to decide)\b/i
+  /(결정|선택|판단|승인)(이|을|를)?\s*(필요|해\s*주셔야|하셔야)|결정할\s*(것|사항|부분)|결정\s*사항|남은\s*결정이\s*있|(정해\s*주|결정해\s*주|선택해\s*주|정하|골라\s*주|고르)(셔야|실\s*(것|일|부분|사항))|고르시면\s*(됩니다|[^.]*겠습니다)|\b(decisions? (needed|required)|needs? your (decision|input|approval)|for you to decide|you('ll| will)? need to decide)\b/i
 const DECISION_NEGATED = /불필요|필요\s*(없|하지\s*않)|\bno decisions? (needed|required)\b|\bnot? need(ed)? to decide\b/i
 
+// An optional follow-up ("원하시면 …하겠습니다", "필요하면 말씀해 주세요", "let me know if you want …")
+// is an offer, not a pending question: the person decided offers stay out of "Needs you".
+// A direct question in the same sentence ("원하시면 지금 배포할까요?") still counts.
+const OFFER_SENTENCE = /(원하시면|필요하시?면|싶으시?면|있으시?면|실\s*거면|\bif you(?:'d| would)? (?:want|like|need|prefer)\b|\blet me know if\b|\btell me if you (?:want|need)\b)[^?]*$/i
+
+// A Korean question with notes after it on the same line ("…넣을까요? 나머지는 내일 봐도 됩니다."),
+// but not one the agent goes on to answer itself ("왜 실패했을까요? 캐시 키 때문입니다.").
+const KOREAN_QUESTION = /[가-힣](까요|나요|가요)\?/
+const SELF_ANSWERED = /^[\s\-*\d.)]*(왜|어째서)\s/
+
 function asksThePerson(line) {
-  return QUESTION_PATTERNS.some((re) => re.test(line)) || (DECISION_MARKER.test(line) && !DECISION_NEGATED.test(line))
+  // A question mark at the end of the line counts as written; the other patterns skip offers.
+  if (/\?\s*$/.test(line)) return true
+  const sentences = line.split(/(?<=[.!?])\s+/).filter((sentence) => !OFFER_SENTENCE.test(sentence))
+  if (sentences.some((sentence) => KOREAN_QUESTION.test(sentence) && !SELF_ANSWERED.test(sentence))) return true
+  const rest = sentences.join(' ')
+  return QUESTION_PATTERNS.some((re) => re.test(rest)) || (DECISION_MARKER.test(rest) && !DECISION_NEGATED.test(rest))
 }
 
 // How far from the end of a reply a question still counts as pending. Agents often follow the

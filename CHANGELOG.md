@@ -41,6 +41,13 @@ All notable changes to this project are documented here. The format follows
 - Lines that flag a decision for the person count as a pending question too, e.g. a heading
   "결정이 필요한 것: …" or "Decision needed: …", but not "결정 불필요" or "no decision needed".
   Card text drops Markdown bold and heading marks.
+- The rules (used when the classifier is off or its answer is pending) no longer put optional
+  follow-ups under "Needs you": "원하시면 …하겠습니다", "필요하면 말씀해 주세요", "let me know if
+  you want …". A direct question in the same sentence still counts.
+- The rules find more turns that wait for the person: a Korean question with notes after it on
+  the same line ("…넣을까요? 나머지는 내일 봐도 됩니다."), requests for something only the person
+  can do ("…실행해 주세요", "암호를 넣어 주십시오", '"시작"이라고 해 주세요'), and more lines that
+  leave a choice ("정해 주실 것이 있습니다", "정하셔야 합니다", "…가운데 고르시면 됩니다").
 - A session whose turn has ended while a subagent is still working stays under "Running": the
   agent carries on when the subagent reports back. Only a background shell on its own lets the
   finished turn count.

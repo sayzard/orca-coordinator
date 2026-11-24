@@ -8,7 +8,7 @@ const byId = (sessions) => Object.fromEntries(sessions.map((s) => [s.sessionId, 
 
 test('detects English questions at the end of a reply', () => {
   assert.equal(detectQuestion('I listed two options.\nWhich one should I go with?'), 'Which one should I go with?')
-  assert.equal(detectQuestion('Done.\nLet me know if you want the migration too.'), 'Let me know if you want the migration too.')
+  assert.equal(detectQuestion('Two drafts are ready.\nLet me know which one you prefer.'), 'Let me know which one you prefer.')
   assert.equal(detectQuestion('Fixed it. All tests pass.'), null)
 })
 
@@ -142,8 +142,49 @@ test('more ways of asking the person to decide are detected', () => {
   assert.equal(detectQuestion('Two options above.\nWhich would you prefer.'), 'Which would you prefer.')
   assert.equal(detectQuestion('Done.\nTell me whether to keep the old flag.'), 'Tell me whether to keep the old flag.')
   assert.equal(detectQuestion('정리했습니다.\n어느 쪽으로 할지 정해 주시면 이어서 작업하겠습니다.\n\n보고서는 Reports/README.md에 저장했습니다.'), '어느 쪽으로 할지 정해 주시면 이어서 작업하겠습니다.')
-  assert.equal(detectQuestion('필요하면 말씀해 주세요'), '필요하면 말씀해 주세요')
   assert.equal(detectQuestion('테스트를 모두 통과했고 커밋했습니다.'), null)
+})
+
+// Detection round 2026-11-24: causes found in the labeled turns, with synthetic text.
+// Optional follow-ups are offers; the person decided offers stay out of "Needs you".
+test('an optional follow-up is not a pending question', () => {
+  assert.equal(detectQuestion('Done.\nLet me know if you want the migration too.'), null)
+  assert.equal(detectQuestion('Migration is done.\nIf you would like, I can also add a rollback script.'), null)
+  assert.equal(detectQuestion('필요하면 말씀해 주세요'), null)
+  assert.equal(detectQuestion('정리를 마쳤습니다.\n원하시면 요약본도 만들어 두겠습니다.'), null)
+  assert.equal(detectQuestion('변경은 작업 폴더에만 있습니다. 병합이 필요하면 말씀해 주세요.'), null)
+  assert.equal(detectQuestion('글자를 더 크게 하고 싶으면 알려 주세요.'), null)
+  // A direct question or a request to choose still counts, with or without "if you want".
+  assert.equal(detectQuestion('검증을 마쳤습니다.\n원하시면 지금 배포할까요?'), '원하시면 지금 배포할까요?')
+  assert.equal(detectQuestion('두 안을 만들었습니다.\n어느 쪽을 원하시는지 알려 주세요.'), '어느 쪽을 원하시는지 알려 주세요.')
+  assert.equal(detectQuestion('문서는 원하시면 나중에 고치겠습니다. 먼저 배포 시점을 정해 주세요.'), '문서는 원하시면 나중에 고치겠습니다. 먼저 배포 시점을 정해 주세요.')
+})
+
+test('a Korean question followed by notes on the same line is detected', () => {
+  assert.equal(detectQuestion('시험은 모두 통과했습니다.\n설정 파일만 먼저 넣을까요? 나머지는 내일 봐도 됩니다.'), '설정 파일만 먼저 넣을까요? 나머지는 내일 봐도 됩니다.')
+  assert.equal(detectQuestion('staging-2는 이제 꺼도 되는 장비인가요? 그렇다면 목록에서 빼겠습니다.'), 'staging-2는 이제 꺼도 되는 장비인가요? 그렇다면 목록에서 빼겠습니다.')
+  // A question the agent answers itself is not an ask.
+  assert.equal(detectQuestion('왜 빌드가 실패했을까요? 캐시 키가 잠금 파일을 무시했기 때문입니다. 키를 고쳤습니다.'), null)
+})
+
+test('requests for something only the person can do are detected', () => {
+  assert.equal(detectQuestion('빌드를 올려 두었습니다.\n확인이 끝나면 `make release`를 실행해 주세요.'), '확인이 끝나면 `make release`를 실행해 주세요.')
+  assert.equal(detectQuestion('이어서 하려면 배포 창에 관리자 암호를 넣어 주십시오.'), '이어서 하려면 배포 창에 관리자 암호를 넣어 주십시오.')
+  assert.equal(detectQuestion('로그인 창에 인증 코드를 적고 확인 단추를 눌러 주세요.'), '로그인 창에 인증 코드를 적고 확인 단추를 눌러 주세요.')
+  assert.equal(detectQuestion('이어 가려면 브라우저에서 카메라 사용을 허용해 주세요.'), '이어 가려면 브라우저에서 카메라 사용을 허용해 주세요.')
+  assert.equal(detectQuestion('준비되면 "시작"이라고 해 주세요.'), '준비되면 "시작"이라고 해 주세요.')
+  assert.equal(detectQuestion('로그 파일을 보내 주시면 원인을 찾아보겠습니다.'), '로그 파일을 보내 주시면 원인을 찾아보겠습니다.')
+  assert.equal(detectQuestion('결과를 채널에 보냈습니다. 로그는 logs/에 넣어 두었습니다.'), null)
+})
+
+test('more lines that leave a choice with the person are detected', () => {
+  assert.equal(detectQuestion('작업에 앞서 정해 주실 것이 두 가지 있습니다.\n캐시와 보관 기간입니다.'), '작업에 앞서 정해 주실 것이 두 가지 있습니다.')
+  assert.equal(detectQuestion('자동으로는 고를 수 없어서, 표를 나눌지 한 장으로 둘지 정하셔야 합니다.'), '자동으로는 고를 수 없어서, 표를 나눌지 한 장으로 둘지 정하셔야 합니다.')
+  assert.equal(detectQuestion('아직 남은 결정이 있습니다.\n보관 기간입니다.'), '아직 남은 결정이 있습니다.')
+  assert.equal(detectQuestion('글꼴은 아래 셋 가운데 고르시면 됩니다.\n- 고딕\n- 명조\n- 둥근 글꼴'), '글꼴은 아래 셋 가운데 고르시면 됩니다.')
+  assert.equal(detectQuestion('처리할 항목은 모두 끝났고 남은 결정도 없습니다.'), null)
+  assert.equal(detectQuestion('번역 파일이 비어 있어 검사가 멈춥니다. 언어를 고르시면 다시 돕니다.'), null)
+  assert.equal(detectQuestion('방침을 정하실 때까지는 기존 값을 그대로 씁니다.'), null)
 })
 
 // Seen live: a background shell kept the session "working" (monitoring) after the agent's turn
