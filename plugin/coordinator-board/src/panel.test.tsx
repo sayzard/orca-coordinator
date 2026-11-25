@@ -52,6 +52,17 @@ test('an option fills the reply and Send sends it with the card fingerprint', as
   assert.equal(p.find({ testId: `note:${coordinatorCard.id}` })?.text, 'Typed into the session; it started working.')
 })
 
+// Seen live: a released worker's card opened its empty workspace, and Orca opened a new, unrelated tab.
+test('Open session shows only for a card whose session is live', async () => {
+  const card = status.decisions.find((d: any) => d.target?.sessionId)
+  const orphan = { ...card, id: 'dec_orphan', sessionId: 'dispatch:ctx_gone', target: { project: 'p', workspace: 'w', title: 'worker ctx_gone', kind: 'chat', path: '/tmp/w', workspaceSelector: 'path:/tmp/w' } }
+  const snapshot = { ok: true, status: { ...status, decisions: [...status.decisions, orphan] }, at: 1 }
+  const { h } = host({ 'board.snapshot': () => snapshot })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  assert.ok(p.find({ testId: `open:${card.id}` }))
+  assert.equal(p.find({ testId: 'open:dec_orphan' }), null)
+})
+
 test('a refused send shows the reason for its code', async () => {
   const { h } = host({ 'decision.send': () => ({ ok: false, code: 'stale', message: 'stale: the session moved on' }) })
   const p = await mount(panel, { host: h, locale: 'en-US' })

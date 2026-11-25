@@ -221,9 +221,12 @@ function DecisionCard({ card }: { card: Card }) {
           </Callout>
         )}
         <Row gap="xs" wrap>
-          <Button size="xs" variant="ghost" icon="open-external" disabled={isBusy} onPress={openSession}>
-            {t(L, 'open')}
-          </Button>
+          {/* Only a live session can be opened: a released worker's empty workspace would open a new, unrelated tab. */}
+          {target?.sessionId ? (
+            <Button size="xs" variant="ghost" key={`open:${card.id}`} icon="open-external" disabled={isBusy} onPress={openSession}>
+              {t(L, 'open')}
+            </Button>
+          ) : null}
           <Button size="xs" variant="ghost" icon="close" disabled={isBusy} onPress={() => act(key, () => plugin.request('decision.dismiss', { id: card.id }))}>
             {t(L, 'dismiss')}
           </Button>
