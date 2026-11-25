@@ -229,7 +229,13 @@ export default function activate(orca: OrcaWorkerApi): void {
 
   orca.panels.handle('digest.request', async () => result(await coord(['digest']), () => ({ key: 'msg.digest' })))
 
-  orca.panels.handle('session.open', async ({ kind, handle, workspaceSelector, path }) => {
+  orca.panels.handle('session.open', async ({ kind, handle, workspaceSelector, path, environment }) => {
+    // A session on a paired Orca server: its folder path means nothing here, so open the
+    // worktree on that server.
+    if (environment) {
+      const env = await orcaCli(['worktree', 'activate', '--environment', environment, '--worktree', workspaceSelector, '--json'], 30_000)
+      return env.ok ? done('msg.opened') : { ok: false, code: 'open_failed', message: env.error.message }
+    }
     // A terminal session: switch straight to its pane.
     if (kind === 'terminal' && handle?.startsWith('term_')) {
       const env = await orcaCli(['terminal', 'switch', '--terminal', handle, '--json'], 20_000)

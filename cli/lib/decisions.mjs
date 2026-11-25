@@ -44,7 +44,7 @@ function attach(card, session) {
   return {
     ...card,
     target: session
-      ? { sessionId: session.sessionId, kind: session.kind, agent: session.agent, project: session.project, workspace: session.workspace, title: session.title, state: session.state, lane: session.lane, handle: session.handle, workspaceSelector: session.workspaceSelector, path: session.path }
+      ? { sessionId: session.sessionId, kind: session.kind, agent: session.agent, project: session.project, workspace: session.workspace, title: session.title, state: session.state, lane: session.lane, handle: session.handle, workspaceSelector: session.workspaceSelector, path: session.path, environmentId: session.environmentId || null }
       : card.target || null,
     stale: Boolean(!card.askMessageId && session && card.evidence?.fingerprint && card.source !== 'auto' && session.fingerprint !== card.evidence.fingerprint && card.status === 'open')
   }

@@ -14,6 +14,8 @@ export type Target = {
   workspaceSelector: string
   /** Workspace folder; used to open folder workspaces, which the CLI cannot activate. */
   path?: string
+  /** Paired Orca server id the session runs on; null on this machine. */
+  environmentId?: string | null
 }
 
 export type Card = {
@@ -48,6 +50,9 @@ export type SessionRow = {
   handle: string | null
   workspaceSelector: string
   path?: string
+  /** Paired Orca server name and id; null on this machine. */
+  environment?: string | null
+  environmentId?: string | null
 }
 
 export type ProjectGroup = {
@@ -93,7 +98,7 @@ declare module 'orca' {
     'decision.dismiss': { input: { id: string }; output: ActionResult }
     'request.send': { input: { text: string; project?: string | null }; output: ActionResult }
     'digest.request': { output: ActionResult }
-    'session.open': { input: { kind: string; handle: string | null; workspaceSelector: string; path?: string | null }; output: ActionResult }
+    'session.open': { input: { kind: string; handle: string | null; workspaceSelector: string; path?: string | null; environment?: string | null }; output: ActionResult }
     'projects.list': { output: { ok: boolean; repos: RepoRow[]; message?: string } }
     'projects.set': { input: { ids: string[] }; output: ActionResult }
     'coordinator.start': { output: ActionResult }

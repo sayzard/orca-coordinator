@@ -147,7 +147,7 @@ function DecisionCard({ card }: { card: Card }) {
   const priorityKey = (has(`priority.${card.priority}`) ? `priority.${card.priority}` : 'priority.undated') as Key
   const draft = draftFor(card)
   const reason = cardReason(card)
-  const openSession = () => act(key, () => plugin.request('session.open', { kind: target?.kind || 'terminal', handle: target?.handle || null, workspaceSelector: target?.workspaceSelector || '', path: target?.path || null }))
+  const openSession = () => act(key, () => plugin.request('session.open', { kind: target?.kind || 'terminal', handle: target?.handle || null, workspaceSelector: target?.workspaceSelector || '', path: target?.path || null, environment: target?.environmentId || null }))
   return (
     <UiCard title={`${target?.project || '?'} · ${target?.workspace || ''}`} description={target ? `${target.title} · ${target.agent || target.kind} · ${target.state || ''}` : t(L, 'card.noSession')}>
       <Stack gap="sm">
@@ -345,7 +345,7 @@ function SessionItem({ s }: { s: SessionRow }) {
       title: s.title,
       status: t(L, `lane.${s.lane}` as Key),
       description: `${s.agent || s.kind} · ${s.workspace}`,
-      onPress: () => void act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
+      onPress: () => void act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null, environment: s.environmentId || null }))
     })
   )
 }
@@ -430,7 +430,7 @@ function hideFollowUp(key: string, live: string[]) {
 }
 
 function openSession(s: SessionRow) {
-  return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
+  return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null, environment: s.environmentId || null }))
 }
 
 /** Sessions by lane, plus answered decisions (follow-up) and verified requests (done). */

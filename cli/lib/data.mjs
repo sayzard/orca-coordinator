@@ -18,8 +18,49 @@ async function cached(name, maxAgeMs, fetcher, { fresh = false } = {}) {
   }
 }
 
+const PS_ARGS = ['worktree', 'ps', '--agent-wait', '--limit', '500']
+const REMOTE_PS_TIMEOUT_MS = 10_000
+
+/**
+ * Names of the paired Orca servers (`--environment <name>`) that a local `worktree ps` left out.
+ * Orca lists only this machine and its ssh hosts; a paired runtime shows up just as a selector
+ * under `hostScope.omittedHostSelectors`. Selectors that are not `--environment` (null for some
+ * ssh hosts) cannot be queried and are skipped.
+ */
+export function omittedEnvironments(ps) {
+  const names = []
+  for (const h of ps?.hostScope?.omittedHostSelectors || []) {
+    const m = /^--environment\s+(\S+)$/.exec(String(h?.selector || '').trim())
+    if (m && !names.includes(m[1])) names.push(m[1])
+  }
+  return names
+}
+
+/**
+ * Adds the worktrees of the paired servers to a local `worktree ps` result. Each server is asked
+ * once, in parallel, without retries: an unreachable one (Orca answers at once with
+ * `remote_runtime_unavailable`) is left out instead of holding up the board.
+ * @param {object} ps local result
+ * @param {(name: string) => Promise<object>} fetchRemote returns that server's `worktree ps` result
+ */
+export async function withRemoteWorktrees(ps, fetchRemote) {
+  const names = omittedEnvironments(ps)
+  if (!names.length) return ps
+  const results = await Promise.allSettled(names.map((name) => fetchRemote(name)))
+  const remote = results.flatMap((r) => (r.status === 'fulfilled' ? r.value?.worktrees || [] : []))
+  return { ...ps, worktrees: [...(ps.worktrees || []), ...remote] }
+}
+
 export function readWorktrees(config, opts = {}) {
-  return cached('worktree-ps', (config.statusCacheSeconds ?? 5) * 1000, () => orca(['worktree', 'ps', '--agent-wait', '--limit', '500'], { retry: true, timeoutMs: 45_000 }), opts)
+  return cached(
+    'worktree-ps',
+    (config.statusCacheSeconds ?? 5) * 1000,
+    async () => {
+      const local = await orca(PS_ARGS, { retry: true, timeoutMs: 45_000 })
+      return withRemoteWorktrees(local, (name) => orca([...PS_ARGS, '--environment', name], { timeoutMs: REMOTE_PS_TIMEOUT_MS }))
+    },
+    opts
+  )
 }
 
 export function readAgentList(config, opts = {}) {

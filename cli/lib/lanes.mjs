@@ -246,6 +246,14 @@ export function applyFinalReplies(ps, finals = {}) {
 }
 
 /**
+ * Orca reports no `orcaSessionId` for agents on a paired server; the pane key (which carries the
+ * agent's session uuid) is stable across polls, so it identifies the session on that server.
+ */
+function remoteSessionId(env, agent) {
+  return env && agent.paneKey ? `remote:${env.id}:${agent.paneKey}` : null
+}
+
+/**
  * @param {object} ps result of `orca worktree ps --json`
  * @param {object} opts
  * @param {object} [opts.agentList] result of `orca agent list --json`
@@ -259,8 +267,12 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
   for (const ws of ps?.worktrees || []) {
     if (ws.isArchived) continue
     if (projects.length && !projects.includes(ws.repoId)) continue
+    // A worktree on a paired Orca server (see withRemoteWorktrees in data.mjs). This machine's own
+    // worktrees, ssh hosts included, carry environment { id: 'local' }.
+    const env = ws.environment?.id && ws.environment.id !== 'local' ? ws.environment : null
     for (const raw of ws.agents || []) {
-      if (!raw.orcaSessionId || excludeSessions.includes(raw.orcaSessionId)) continue
+      const sessionId = raw.orcaSessionId || remoteSessionId(env, raw)
+      if (!sessionId || excludeSessions.includes(sessionId)) continue
       const agent = effectiveAgent(raw)
       const listed = kinds.get(agent.orcaSessionId)
       const handle = typeof agent.address === 'string' ? agent.address : null
@@ -268,14 +280,21 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
       // Seen live: Orca keeps a terminal agent listed after its pane is closed, with no `term_`
       // address (and `orca agent show` lists no places). Nothing can be read or answered there.
       if (kind === 'terminal' && !handle?.startsWith('term_')) continue
-      const attention = attentionFor(agent)
+      const found = attentionFor(agent)
+      // Replies go to an Orca session id or a terminal handle on this machine; a session on a
+      // paired server has neither, so it is answered in the session itself.
+      const attention = found && env ? { ...found, canReply: false } : found
+      const project = ws.repo || ws.displayName || ''
       sessions.push({
-        sessionId: agent.orcaSessionId,
+        sessionId,
         kind,
         agent: agent.agentType || listed?.agent || null,
         worktreeId: ws.worktreeId,
         repoId: ws.repoId,
-        project: ws.repo || ws.displayName || '',
+        // The server name tells a remote project from a local one of the same name.
+        project: env?.name ? `${project} @ ${env.name}` : project,
+        environment: env ? env.name || env.id : null,
+        environmentId: env ? env.id : null,
         workspace: ws.displayName || (ws.branch || '').replace(/^refs\/heads\//, ''),
         workspaceSelector: ws.address?.worktree ? ws.address.worktree : `id:${ws.worktreeId}`,
         path: ws.path,

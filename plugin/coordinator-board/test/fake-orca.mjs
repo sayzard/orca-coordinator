@@ -6,6 +6,9 @@ if (args[0] === 'terminal' && args[1] === 'send' && handle === 'term_menu-0001')
   console.log(JSON.stringify({ ok: false, error: { code: 'agent_prompt_blocked', message: 'blocked' } }))
 } else if (args[0] === 'terminal' && args[1] === 'send') {
   console.log(JSON.stringify({ ok: true, result: { send: { accepted: true, prompt: { requestId: 'req-term-1', stages: ['input_accepted', 'turn_started'] } } } }))
+} else if (args[0] === 'worktree' && args[1] === 'activate' && args[args.indexOf('--worktree') + 1]?.startsWith('id:remote') && !args.includes('--environment')) {
+  // A worktree on a paired server is unknown to this machine's Orca.
+  console.log(JSON.stringify({ ok: false, error: { code: 'selector_not_found', message: 'no such worktree' } }))
 } else if (args[0] === 'repo' && args[1] === 'list') {
   console.log(JSON.stringify({ ok: true, result: { repos: [{ id: 'repo-alpha', displayName: 'alpha', kind: 'git' }, { id: 'repo-beta', displayName: 'beta', kind: 'git' }, { id: 'repo-bare' }] } }))
 } else {

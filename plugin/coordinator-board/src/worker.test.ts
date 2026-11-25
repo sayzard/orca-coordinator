@@ -187,6 +187,28 @@ test('a chat in a folder workspace opens through the host API, by its folder pat
   await worker.deactivate()
 })
 
+test('a session on a paired server opens on that server, not by its folder path here', async () => {
+  const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
+  process.env.FAKE_COORD_LOG = log
+  const host = mockHost({
+    settings: { coordPath: fake('fake-coord.mjs'), notify: false, language: 'en' },
+    results: {
+      'statusBar.update': { ok: true },
+      'notifications.show': { delivered: true },
+      'commands.run': { ran: true },
+      'workspace.list': { workspaces: [{ id: 'ws-same-path', kind: 'worktree', name: 'svc', path: '/home/me/svc', branch: 'main', hostId: 'local' }], truncated: false },
+      'workspace.open': { opened: true }
+    }
+  })
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const input = { kind: 'chat', handle: null, workspaceSelector: 'id:remote-repo::/home/me/svc', path: '/home/me/svc' }
+  assert.equal((await worker.request('session.open', { ...input, environment: 'env-gpu' })).ok, true)
+  assert.deepEqual(host.callsOf('workspace.open'), [])
+  // Without the server, the local Orca does not know the worktree.
+  assert.equal((await worker.request('session.open', { ...input, path: null })).ok, false)
+  await worker.deactivate()
+})
+
 /** What the Orca host accepts from a handler: plain JSON only. `undefined` (even as an object
  * field), functions, non-finite numbers and class instances make it answer "non-JSON value". */
 function assertJsonClean(value: unknown, path = 'result'): void {
