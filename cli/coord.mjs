@@ -245,7 +245,8 @@ async function main() {
           const match = sessions.find((s) => s.worktreeId === w.workspace)
           sessionId = match?.sessionId || `dispatch:${values.dispatch}`
           const path = String(w.workspace || '').split('::')[1] || ''
-          fallbackTarget = { project: path.split('/').slice(-2, -1)[0] || '', workspace: path.split('/').pop() || '', title: `worker ${values.dispatch}`, kind: 'chat' }
+          // path and workspaceSelector let the board open the workspace even after the worker is released.
+          fallbackTarget = { project: path.split('/').slice(-2, -1)[0] || '', workspace: path.split('/').pop() || '', title: `worker ${values.dispatch}`, kind: 'chat', path: path || null, workspaceSelector: path ? `path:${path}` : '' }
         }
         const card = await addDecision({ sessions, sessionId, question: values.question, recommendation: values.recommend, reason: values.reason, options: values.option || [], needsInput: values['needs-input'], priority: values.priority, askMessageId: values['ask-message'] || null, dispatchId: values.dispatch || null, fallbackTarget })
         return out(card, json, `Saved card ${card.id} (rev ${card.revision})`)
