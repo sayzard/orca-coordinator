@@ -51,6 +51,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Kanban "Follow-up" rows can be cleared from the board with their own × button, and open their
+  session with an open button while it is on the board. A row whose session has left the board
+  (closed chat, released worker) says "session closed" instead of being a dead, unpressable row.
+  Clearing only hides the row in the panel; `coord history` keeps the record.
 - A terminal agent whose pane was closed no longer lingers on the board: Orca keeps listing it
   without a `term_` address, and nothing can be read or answered there any more.
 - A session whose subagent is still working stays under "Running" with newer Orca builds, which

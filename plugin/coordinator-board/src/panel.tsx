@@ -62,6 +62,8 @@ const requestText = atom('request-draft', '', { persist: 'plugin' })
 const requestProject = atom('auto')
 const kanbanProject = atom('kanban-project', 'all', { persist: 'plugin' })
 const expandedColumns = atom({} as Record<string, boolean>)
+// Follow-up rows the person cleared from the kanban. Board-only: the CLI history keeps them.
+const hiddenFollowUps = atom('hidden-followups', [] as string[], { persist: 'plugin' })
 const repos = atom<RepoRow[] | null>(null)
 const picked = atom<Record<string, boolean>>({})
 const jevKeyDraft = atom('')
@@ -420,7 +422,12 @@ const COLUMN_TONE: Record<Column, Tone> = { running: 'accent', review: 'warning'
 const LANE_ICON: Record<string, IconName> = { human: 'warning', running: 'play', review: 'check', idle: 'pause', unknown: 'info' }
 const COLUMN_LIMIT = 4
 
-type KanbanItem = { key: string; title: string; description: string; icon: IconName; lane?: string; onPress?: () => void }
+type KanbanItem = { key: string; title: string; description: string; icon: IconName; lane?: string; onPress?: () => void; onHide?: () => void }
+
+/** Clears one follow-up row; keys that left the history window are dropped so the list stays small. */
+function hideFollowUp(key: string, live: string[]) {
+  update(hiddenFollowUps, (h) => [...h.filter((k) => live.includes(k)), key])
+}
 
 function openSession(s: SessionRow) {
   return act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
@@ -447,18 +454,24 @@ function kanbanColumns(snap: Extract<Snapshot, { ok: true }>, project: string, L
       })
     }
   }
-  for (const h of snap.status.history) {
-    if (h.type !== 'decision.answered') continue
+  const hidden = read(hiddenFollowUps)
+  const answered = snap.status.history.filter((h) => h.type === 'decision.answered')
+  const liveKeys = answered.map((h) => `h:${h.at}:${h.sessionId || ''}`)
+  for (const h of answered) {
     if (projectName && h.project !== projectName) continue
     if (!projectName && project !== 'all') continue
+    const key = `h:${h.at}:${h.sessionId || ''}`
+    if (hidden.includes(key)) continue
     const target = h.sessionId ? sessions.get(h.sessionId) : undefined
-    const now = target ? t(L, 'kanban.now', { lane: t(L, `lane.${target.lane}` as Key) }) : null
+    // A session that left the board (closed chat, released worker) cannot be opened, only cleared.
+    const now = target ? t(L, 'kanban.now', { lane: t(L, `lane.${target.lane}` as Key) }) : t(L, 'kanban.gone')
     cols.history.push({
-      key: `h:${h.at}:${h.sessionId || ''}`,
+      key,
       title: h.question || h.title || '',
       description: [`→ ${(h.answer || '').slice(0, 60)}`, showProject ? h.project : null, now].filter(Boolean).join(' · '),
       icon: 'next',
-      onPress: target ? () => void openSession(target) : undefined
+      onPress: target ? () => void openSession(target) : undefined,
+      onHide: () => hideFollowUp(key, liveKeys)
     })
   }
   for (const r of snap.status.requests) {
@@ -474,6 +487,29 @@ function kanbanColumns(snap: Extract<Snapshot, { ok: true }>, project: string, L
     })
   }
   return cols
+}
+
+/**
+ * A follow-up row. A pressable ListItem cannot hold other controls, so this row is not pressable
+ * and carries its own buttons: open the session (while it is on the board) and clear the row.
+ */
+function followUpRow(it: KanbanItem, L: Lang) {
+  return (
+    <ListItem key={it.key}>
+      <Row gap="xs" align="center">
+        <Box grow minWidth={0}>
+          <Stack gap="none">
+            <Text truncate>{it.title}</Text>
+            <Text size="xs" muted truncate>
+              {it.description}
+            </Text>
+          </Stack>
+        </Box>
+        {it.onPress ? <IconButton key={`open:${it.key}`} icon="open-external" size="xs" variant="ghost" label={t(L, 'open')} onPress={it.onPress} /> : null}
+        <IconButton key={`hide:${it.key}`} icon="close" size="xs" variant="ghost" label={t(L, 'kanban.hide')} onPress={it.onHide} />
+      </Row>
+    </ListItem>
+  )
 }
 
 function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
@@ -493,9 +529,7 @@ function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
         <Badge tone={COLUMN_TONE[col]}>{String(items.length)}</Badge>
       </Row>
       <List label={label}>
-        {shown.map((it) => (
-          laneRow({ k: it.key, lane: it.lane || '', icon: it.icon, title: it.title, description: it.description, onPress: it.onPress })
-        ))}
+        {shown.map((it) => (it.onHide ? followUpRow(it, L) : laneRow({ k: it.key, lane: it.lane || '', icon: it.icon, title: it.title, description: it.description, onPress: it.onPress })))}
       </List>
       {items.length > COLUMN_LIMIT ? (
         <Button size="xs" variant="ghost" onPress={() => update(expandedColumns, (e) => ({ ...e, [col]: !open }))}>

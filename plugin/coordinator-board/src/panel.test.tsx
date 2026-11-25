@@ -144,6 +144,28 @@ test('pressing a kanban card opens its session', async () => {
   assert.deepEqual({ kind: open.kind, handle: open.handle }, { kind: 'terminal', handle: 'term_w-0004' })
 })
 
+// Asked by the person: follow-up rows for closed sessions could be neither pressed nor removed.
+test('a follow-up row opens a live session and can be cleared; a closed session shows it is gone', async () => {
+  const live = status.history.find((h: any) => h.type === 'decision.answered')
+  const gone = { ...live, at: live.at + 1, sessionId: 'sess-closed-chat', question: 'Run the paid eval?' }
+  const snapshot = { ok: true, status: { ...status, history: [gone, ...status.history] }, at: 1 }
+  const { h, sent } = host({ 'board.snapshot': () => snapshot })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'kanban')
+  const liveKey = `h:${live.at}:${live.sessionId}`
+  const goneKey = `h:${gone.at}:sess-closed-chat`
+  await p.press({ testId: `open:${liveKey}` })
+  assert.ok(sent.some((s) => s.name === 'session.open'))
+  assert.equal(p.find({ testId: `open:${goneKey}` }), null)
+  assert.ok(p.find({ text: /session closed/ }))
+  await p.press({ testId: `hide:${goneKey}` })
+  assert.equal(p.find({ text: 'Run the paid eval?' }), null)
+  await p.press({ testId: `hide:${liveKey}` })
+  assert.equal(p.find({ label: 'Follow-up', type: 'List' }), null)
+  assert.deepEqual(p.errors, [])
+  assert.deepEqual(p.warnings, [])
+})
+
 test('kanban columns follow a Korean UI language', async () => {
   const { h } = host()
   const p = await mount(panel, { host: h, locale: 'ko-KR' })
