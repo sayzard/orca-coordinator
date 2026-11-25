@@ -88,6 +88,16 @@ test('agent list kinds override the address heuristic', () => {
   assert.equal(s['sess-question'].kind, 'chat')
 })
 
+test('a terminal agent whose pane is gone (no term_ address) is left out', () => {
+  const clone = structuredClone(ps)
+  const menu = clone.worktrees.flatMap((w) => w.agents || []).find((a) => a.orcaSessionId === 'sess-menu')
+  menu.address = null
+  const s = byId(deriveSessions(clone, { agentList: { agents: [{ orcaSessionId: 'sess-menu', kind: 'terminal' }] } }))
+  assert.equal(s['sess-menu'], undefined)
+  // A chat session has an orca_session_id: address and stays.
+  assert.ok(s['sess-chat'])
+})
+
 test('fingerprint changes when the session moves on', () => {
   const a = ps.worktrees[0].agents[2]
   const before = fingerprint(a)

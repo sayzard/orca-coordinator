@@ -184,6 +184,9 @@ export function deriveSessions(ps, { agentList = null, projects = [], excludeSes
       const listed = kinds.get(agent.orcaSessionId)
       const handle = typeof agent.address === 'string' ? agent.address : null
       const kind = listed?.kind || (handle?.startsWith('term_') ? 'terminal' : 'chat')
+      // Seen live: Orca keeps a terminal agent listed after its pane is closed, with no `term_`
+      // address (and `orca agent show` lists no places). Nothing can be read or answered there.
+      if (kind === 'terminal' && !handle?.startsWith('term_')) continue
       const attention = attentionFor(agent)
       sessions.push({
         sessionId: agent.orcaSessionId,
