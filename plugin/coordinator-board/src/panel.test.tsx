@@ -107,6 +107,14 @@ test('a project header shows its lane counts as separate styled words and folds'
   assert.deepEqual(p.warnings, [])
 })
 
+test('the header count of running sessions carries the Running styling', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  const el = p.find({ text: `Running ${status.counts.running}` }) as any
+  assert.ok(el, p.summary().join(' | '))
+  assert.deepEqual({ weight: el.props.weight, tone: el.props.tone }, status.counts.running > 0 ? { weight: 'semibold', tone: 'success' } : { weight: 'regular', tone: undefined })
+})
+
 test('the kanban tab shows only the non-empty columns, in board order', async () => {
   const { h } = host()
   const p = await mount(panel, { host: h, locale: 'en-US' })

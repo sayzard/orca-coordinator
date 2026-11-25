@@ -769,7 +769,8 @@ export default function Panel() {
           <Heading level={2}>{t(L, 'title')}</Heading>
           <Row gap="xs" align="center" wrap>
             {s.counts.running > 0 ? <LaneMark lane="running" /> : null}
-            <Text size="xs" muted>
+            {/* Styled like the Running lane word while something runs, so it stands out from the muted rest. */}
+            <Text size="xs" weight={s.counts.running > 0 ? 'semibold' : 'regular'} tone={s.counts.running > 0 ? LANE_TONE.running : undefined} muted={!(s.counts.running > 0)}>
               {t(L, 'summary.running', { n: s.counts.running })}
             </Text>
             <Text size="xs" muted>
