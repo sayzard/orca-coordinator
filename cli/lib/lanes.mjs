@@ -125,8 +125,10 @@ function trim(text, n) {
 }
 
 /** A subagent still working: the main agent picks up its result and carries on by itself. */
+// Newer Orca builds report them under `children` (kind `agent`) instead of `subagents`.
 function hasWorkingSubagent(agent) {
-  return (agent.subagents || []).some((s) => s?.state === 'working')
+  if ((agent.subagents || []).some((s) => s?.state === 'working')) return true
+  return (agent.children || []).some((c) => c?.kind === 'agent' && c.state === 'working' && c.membership !== 'gone')
 }
 
 /**

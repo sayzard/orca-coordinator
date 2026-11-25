@@ -238,3 +238,20 @@ test('a finished turn with a working subagent stays running', () => {
   assert.equal(s.lane, a.activity?.unread ? 'review' : 'idle')
   assert.equal(s.background, true)
 })
+
+// Seen live: newer Orca builds list the subagent under `children` with kind `agent`.
+test('a working subagent reported under children keeps the session running', () => {
+  const clone = structuredClone(ps)
+  const a = clone.worktrees[1].agents[0]
+  Object.assign(a, {
+    state: 'working',
+    mainAgent: { state: 'done', outcome: 'success', stateStartedAt: 1795436202351 },
+    children: [{ id: 'c1', kind: 'agent', name: 'general-purpose', state: 'working', membership: 'live' }],
+    lastAssistantMessage: 'I asked a reviewer for the direction; I will apply it when it answers.'
+  })
+  let s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.lane, 'running')
+  a.children[0].state = 'done'
+  s = byId(deriveSessions(clone))['sess-working']
+  assert.notEqual(s.lane, 'running')
+})
