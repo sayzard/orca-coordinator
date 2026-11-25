@@ -40,6 +40,11 @@ All notable changes to this project are documented here. The format follows
   reports, work listed for later or for someone else, and standing promises. The rubric's rule 3
   (docs/detection-rubric.md) now says so; it used to call "I will do X next" an offer.
 
+### Changed
+
+- In the Progress list, the lane word of a running session ("Running") is semibold and in the
+  accent color, and "Needs you" in the warning color, so they stand apart from the muted "Idle".
+
 ### Fixed
 
 - A long final reply ending with a question shows under "Needs you" again. `orca agent read` cuts

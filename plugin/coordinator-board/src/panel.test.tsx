@@ -187,3 +187,18 @@ test('the panel follows a Korean UI language', async () => {
   await p.press({ testId: `send:${coordinatorCard.id}` })
   assert.equal(p.find({ testId: `note:${coordinatorCard.id}` })?.text, '세션에 입력했고 작업이 시작됐습니다.')
 })
+
+// Asked by the person: "Running" must stand apart from the muted "Idle" in the progress list.
+test('the lane word of a running session row has weight and color; idle rows stay plain', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'ko-KR' })
+  await p.select({ label: '보드' }, 'progress')
+  const running = p.findAll({ type: 'Text', text: '진행 중' })
+  assert.ok(running.length > 0)
+  for (const r of running) assert.deepEqual({ weight: (r as any).props.weight, tone: (r as any).props.tone }, { weight: 'semibold', tone: 'accent' })
+  // The rest of the row stays muted, and an idle row keeps its one plain description.
+  assert.ok(p.find({ type: 'Text', text: /^· / }))
+  assert.equal(p.find({ type: 'Text', text: '대기' }), null)
+  assert.deepEqual(p.errors, [])
+  assert.deepEqual(p.warnings, [])
+})
