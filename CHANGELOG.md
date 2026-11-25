@@ -42,11 +42,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- In the Progress list, the lane word of a running session ("Running") is semibold and in the
-  accent color, and "Needs you" in the warning color, so they stand apart from the muted "Idle".
+- In the Progress list, the lane word of a running session ("Running") is semibold and green,
+  and "Needs you" semibold in the warning color, so they stand apart from the muted "Idle". The
+  same styling applies to the lane counts under each project name, which stay visible when the
+  project is folded (the project header is built by the panel, since Orca's Collapsible takes its
+  description as plain text), and to the header's "Running" count while sessions run.
+- Session rows in the Progress list are indented under their project.
 
 ### Fixed
 
+- A terminal agent whose pane was closed no longer lingers on the board: Orca keeps listing it
+  without a `term_` address, and nothing can be read or answered there any more.
+- A session whose subagent is still working stays under "Running" with newer Orca builds, which
+  report subagents under `children` (kind `agent`) instead of `subagents`.
+- [Open session] on a worker's question card opens its workspace (the card keeps the workspace
+  path), and is hidden once the card's session is gone, instead of opening an empty workspace in
+  a new, unrelated tab.
 - A long final reply ending with a question shows under "Needs you" again. `orca agent read` cuts
   long entries off ("… (truncated)"), and that partial reading replaced the full message Orca
   reported, so the question at the end was lost; cut-off readings are now ignored.
