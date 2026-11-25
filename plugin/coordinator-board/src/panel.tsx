@@ -9,7 +9,6 @@ import {
   Callout,
   Card as UiCard,
   Checkbox,
-  Collapsible,
   EmptyState,
   env,
   Grid,
@@ -271,13 +270,6 @@ function DecisionsTab({ cards, hasCoordinator }: { cards: Card[]; hasCoordinator
   )
 }
 
-function laneSummary(g: ProjectGroup, L: Lang): string {
-  return ['human', 'running', 'review', 'idle']
-    .filter((l) => g.counts[l])
-    .map((l) => `${t(L, `lane.${l}` as Key)} ${g.counts[l]}`)
-    .join(' · ')
-}
-
 /**
  * Animated marks for the two lanes that need attention. Running uses Orca's Spinner. Orca refuses
  * animated images, so "needs you" cycles still frames (assets/needs-you-N.png, made by
@@ -355,22 +347,63 @@ function SessionItem({ s }: { s: SessionRow }) {
   )
 }
 
+// Per project, whether the person opened or closed it; unset means "open when something needs attention".
+const projectOpen = atom('project-open', {} as Record<string, boolean>, { persist: 'memory' })
+
+/**
+ * The lane counts under a project, styled like the lane word in its rows. Orca's Collapsible takes
+ * its description as plain text, so a folded project could not show "Running" apart from "Idle";
+ * the header is built here instead.
+ */
+function LaneSummary({ g }: { g: ProjectGroup }) {
+  const L = lang()
+  const lanes = ['human', 'running', 'review', 'idle'].filter((l) => g.counts[l])
+  if (!lanes.length) return <Text size="xs" muted>{t(L, 'progress.none')}</Text>
+  return (
+    <Row gap="xs" wrap>
+      {lanes.map((l, i) => (
+        <Text key={`sum:${g.repoId || g.project}:${l}`} size="xs" weight={LANE_TONE[l] ? 'semibold' : 'regular'} tone={LANE_TONE[l]} muted={!LANE_TONE[l]}>
+          {`${i ? '· ' : ''}${t(L, `lane.${l}` as Key)} ${g.counts[l]}`}
+        </Text>
+      ))}
+    </Row>
+  )
+}
+
+function ProjectGroupItem({ g }: { g: ProjectGroup }) {
+  const key = g.repoId || g.project
+  const stored = read(projectOpen)[key]
+  const open = stored ?? Boolean(g.counts.human || g.counts.running)
+  return (
+    <Stack gap="xs">
+      <Row gap="xs" align="center">
+        <IconButton icon={open ? 'collapse' : 'expand'} label={g.project} size="xs" variant="ghost" onPress={() => update(projectOpen, (m) => ({ ...m, [key]: !open }))} />
+        <Stack gap="none">
+          <Text weight="semibold">{g.project}</Text>
+          <LaneSummary g={g} />
+        </Stack>
+      </Row>
+      {open ? (
+        <List label={g.project}>
+          {g.sessions
+            .filter((s) => s.lane !== 'idle' || g.sessions.length <= 6)
+            .slice(0, 12)
+            .map((s) => (
+              <SessionItem s={s} />
+            ))}
+        </List>
+      ) : null}
+    </Stack>
+  )
+}
+
 function ProjectList({ groups }: { groups: ProjectGroup[] }) {
   const L = lang()
   if (!groups.length) return <EmptyState icon="folder" title={t(L, 'progress.empty.title')} description={t(L, 'progress.empty.body')} />
   return (
     <Stack gap="sm">
       {groups.map((g) => (
-        <Collapsible title={g.project} description={laneSummary(g, L) || t(L, 'progress.none')} defaultOpen={Boolean(g.counts.human || g.counts.running)}>
-          <List label={g.project}>
-            {g.sessions
-              .filter((s) => s.lane !== 'idle' || g.sessions.length <= 6)
-              .slice(0, 12)
-              .map((s) => (
-                <SessionItem s={s} />
-              ))}
-          </List>
-        </Collapsible>
+        <ProjectGroupItem g={g} />
       ))}
     </Stack>
   )

@@ -91,6 +91,22 @@ test('the progress tab lists sessions by project', async () => {
   assert.equal(p.find({ label: 'Follow-up' }), null)
 })
 
+// Seen live: a folded project's "Running 1" read like "Idle 1"; the summary now carries the lane styling.
+test('a project header shows its lane counts as separate styled words and folds', async () => {
+  const { h } = host()
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'progress')
+  assert.ok(p.find({ text: '· Running 1' }), p.summary().join(' | '))
+  assert.ok(p.find({ text: 'Needs you 1' }))
+  // beta needs attention, so it starts open; folding it hides its rows but keeps the summary.
+  assert.ok(p.find({ label: 'beta', type: 'List' }))
+  await p.press({ label: 'beta', type: 'IconButton' })
+  assert.equal(p.find({ label: 'beta', type: 'List' }), null)
+  assert.ok(p.find({ text: '· Running 1' }))
+  assert.deepEqual(p.errors, [])
+  assert.deepEqual(p.warnings, [])
+})
+
 test('the kanban tab shows only the non-empty columns, in board order', async () => {
   const { h } = host()
   const p = await mount(panel, { host: h, locale: 'en-US' })
