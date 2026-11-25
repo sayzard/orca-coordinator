@@ -67,7 +67,8 @@ test('score reports decision recall and precision, offers and false alarms separ
   const items = [
     toItem('claude', 'p', { reply: 'Done.\nShall I push?', next: 'yes' }),
     toItem('claude', 'p', { reply: 'Two designs above, A and B.', next: 'A' }),
-    toItem('claude', 'p', { reply: 'Done.\nLet me know if you want the docs too.', next: 'thanks' }),
+    // An offer the rules still flag: "what next" closers read like a request.
+    toItem('claude', 'p', { reply: 'Done.\nLet me know what to pick up next.', next: 'thanks' }),
     toItem('claude', 'p', { reply: 'All tests pass.', next: 'next task' }),
     toItem('claude', 'p', { reply: 'Why did it fail?\nBecause the cache was stale.', next: 'ok' })
   ]
