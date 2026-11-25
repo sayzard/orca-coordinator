@@ -30,6 +30,20 @@ All notable changes to this project are documented here. The format follows
   turns it did not flag) in `eval/signals.jsonl` under the coordinator home.
 - [docs/detection-round.md](docs/detection-round.md): a daily improvement round the Orca bot
   hands to the coordinator.
+- Stalled turns show under "Needs you". A finished turn whose last sentence announces the step
+  the agent is about to take ("I'll go in this order and start with step 2 now", "다음으로
+  …하겠습니다"), with nothing still running, waits until the person says "go ahead"; the board
+  showed it as idle. The card asks whether to proceed and has a one-tap "Go ahead." / "진행해
+  주세요." reply. A narrow rule finds such turns, also when the classifier calls the turn a
+  report or an offer. Left alone: a session
+  whose background job or subagent is still running, a reply that says it resumes when a job
+  reports, work listed for later or for someone else, and standing promises. The rubric's rule 3
+  (docs/detection-rubric.md) now says so; it used to call "I will do X next" an offer.
+
+### Changed
+
+- In the Progress list, the lane word of a running session ("Running") is semibold and in the
+  accent color, and "Needs you" in the warning color, so they stand apart from the muted "Idle".
 
 ### Fixed
 

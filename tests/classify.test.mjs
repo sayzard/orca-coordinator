@@ -23,6 +23,7 @@ function fakeRun() {
     calls.push(input)
     if (input.includes('LAYOUTS')) return { text: '{"label":"decision","question":"Which layout, A or B?","options":[{"label":"A","reply":"Go with A."},{"label":"B","reply":"Go with B."}]}' }
     if (input.includes('IFYOUWANT')) return { text: 'Sure: {"label":"offer","question":"ignored"}' }
+    if (input.includes('STEPTWO')) return { text: '{"label":"decision","question":"Go ahead with step 2?","options":[{"label":"Go ahead","reply":"Go ahead."}],"stalled":true}' }
     if (input.includes('BROKEN')) return { text: 'not json' }
     return { text: '{"label":"none","question":""}' }
   }
@@ -164,4 +165,60 @@ test('Jev runs only with a key; without one, cached answers still apply but noth
   let called = 0
   await readTurnClasses(data, jevConfig, { env: {}, run: async () => (called++, { json: {} }) })
   assert.equal(called, 0)
+})
+
+// A turn that ends by announcing its next step ("stalled"): the model marks it, the card gets a
+// go-ahead button, and a session whose background job is still running is left alone.
+test('a stalled turn from the model becomes a go-ahead card, except while a background job runs', async () => {
+  assert.equal(parseClassification('{"label":"decision","question":"Go ahead?","options":[],"stalled":true}').stalled, true)
+  assert.equal(parseClassification('{"label":"none","question":"","options":[],"stalled":true}').stalled, undefined)
+  // Wording the rules do not read as an announcement.
+  const data = withReplies({ 'sess-idle': 'The plan has three steps. STEPTWO is what comes after this message.' })
+  const { run } = fakeRun()
+  const classes = await readTurnClasses(data, config, { run })
+  assert.equal(classes['sess-idle'].stalled, true)
+  let s = byId(deriveSessions(applyTurnClasses(data, classes, settings)))['sess-idle']
+  assert.equal(s.lane, 'human')
+  assert.equal(s.attention.text, 'Go ahead with step 2?')
+  assert.deepEqual(autoCardFor(s).options, [{ label: 'Go ahead', reply: 'Go ahead.', send: true }])
+  assert.equal(autoCardFor(s).reasonKey, 'auto.stalled')
+  // The same turn with a background shell still running: Orca reports the session as working.
+  const running = structuredClone(data)
+  for (const ws of running.worktrees) for (const a of ws.agents) if (a.orcaSessionId === 'sess-idle') Object.assign(a, { state: 'working', mainAgent: { state: 'done', stateStartedAt: a.stateStartedAt } })
+  const again = await readTurnClasses(running, config, { run })
+  s = byId(deriveSessions(applyTurnClasses(running, again, settings)))['sess-idle']
+  assert.equal(s.background, true)
+  assert.equal(s.turnLabel, 'decision')
+  assert.equal(s.attention, null)
+})
+
+test('a Jev decision on a stalled turn asks to proceed and always has a go-ahead button', () => {
+  const reply = '작업을 셋으로 나눴습니다.\n위 차례대로 곧바로 착수하겠습니다. 2단계 캐시 비우기부터 시작합니다.'
+  const { candidates, tail } = jevRequest(reply, 'jev-test')
+  const answers = { label: { choice: 'decision' } }
+  const none = parseJev({ answers }, candidates, tail)
+  assert.equal(none.stalled, true)
+  assert.equal(none.question, '진행할까요? “2단계 캐시 비우기부터 시작합니다.”')
+  assert.deepEqual(none.options, [{ label: '진행', reply: '진행해 주세요.' }])
+  // Buttons Jev finds fitting are kept as they are.
+  const yes = candidates.findIndex((c) => c.reply === '네, 진행해 주세요.')
+  const picked = parseJev({ answers: { ...answers, [`b${yes}`]: { noul: 0.9 } } }, candidates, tail)
+  assert.deepEqual(picked.options, [{ label: '네, 진행', reply: '네, 진행해 주세요.' }])
+  // A question the rules read is not a stalled turn.
+  const asked = jevRequest('Two layouts are ready.\nWhich one should I go with?', 'jev-test')
+  assert.equal(parseJev({ answers }, asked.candidates, asked.tail).stalled, undefined)
+})
+
+// The person's board may run a classifier that still reads an announced next step as a report.
+test('a stalled turn the model calls "none" is still flagged by the rule, with the go-ahead button', async () => {
+  const data = withReplies({ 'sess-idle': '작업을 셋으로 나눴습니다.\n위 차례대로 곧바로 착수하겠습니다. 2단계 캐시 비우기부터 시작합니다.', 'sess-question': 'Why did it fail? The cache was stale; fixed.' })
+  const { run } = fakeRun()
+  const classes = await readTurnClasses(data, config, { run })
+  assert.equal(classes['sess-idle'].label, 'none')
+  const s = byId(deriveSessions(applyTurnClasses(data, classes, settings)))
+  assert.equal(s['sess-idle'].lane, 'human')
+  assert.equal(s['sess-idle'].attention.source, 'rule')
+  assert.deepEqual(autoCardFor(s['sess-idle']).options, [{ label: '진행', reply: '진행해 주세요.', send: true }])
+  // The model's "none" still overrides the question rules.
+  assert.equal(s['sess-question'].attention, null)
 })

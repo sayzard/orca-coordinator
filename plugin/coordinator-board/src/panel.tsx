@@ -302,19 +302,37 @@ function LaneMark({ lane }: { lane: string }) {
   return null
 }
 
-/** A list row: animated mark for running / needs-you sessions, the regular icon otherwise. */
+// The lane word of a running / needs-you row is set apart from the muted "Idle" of other rows.
+const LANE_TONE: Record<string, Tone> = { running: 'accent', human: 'warning' }
+
+/**
+ * A list row: animated mark for running / needs-you sessions, the regular icon otherwise. With
+ * `status` (the lane word), those rows show it in weight and color before the muted description.
+ */
 /** Called as a function (not a component) so its key stays on the ListItem in the parent's tree. */
-function laneRow({ k, lane, icon, title, description, onPress }: { k: string; lane: string; icon: IconName; title: string; description: string; onPress?: () => void }) {
-  if (!LANE_MARK[lane]) return <ListItem key={k} icon={icon} title={title} description={description} onPress={onPress} />
+function laneRow({ k, lane, icon, title, status, description, onPress }: { k: string; lane: string; icon: IconName; title: string; status?: string; description: string; onPress?: () => void }) {
+  const plain = [status, description].filter(Boolean).join(' · ')
+  if (!LANE_MARK[lane]) return <ListItem key={k} icon={icon} title={title} description={plain} onPress={onPress} />
   return (
     <ListItem key={k} onPress={onPress}>
       <Row gap="sm" align="center">
         <LaneMark lane={lane} />
         <Stack gap="none">
           <Text truncate>{title}</Text>
-          <Text size="xs" muted truncate>
-            {description}
-          </Text>
+          {status ? (
+            <Row gap="xs" align="center">
+              <Text size="xs" weight="semibold" tone={LANE_TONE[lane]}>
+                {status}
+              </Text>
+              <Text size="xs" muted truncate>
+                {description ? `· ${description}` : ''}
+              </Text>
+            </Row>
+          ) : (
+            <Text size="xs" muted truncate>
+              {description}
+            </Text>
+          )}
         </Stack>
       </Row>
     </ListItem>
@@ -330,7 +348,8 @@ function SessionItem({ s }: { s: SessionRow }) {
       lane: s.lane,
       icon,
       title: s.title,
-      description: `${t(L, `lane.${s.lane}` as Key)} · ${s.agent || s.kind} · ${s.workspace}`,
+      status: t(L, `lane.${s.lane}` as Key),
+      description: `${s.agent || s.kind} · ${s.workspace}`,
       onPress: () => void act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null }))
     })
   )
