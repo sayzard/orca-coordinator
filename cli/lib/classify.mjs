@@ -1,5 +1,6 @@
 // Turn-end classification with a model: does a finished turn need the person?
-//   decision — the agent stopped and waits for a choice, approval, answer or action
+//   decision — the agent stopped and waits for a choice, approval, answer or action, or for a
+//              go-ahead on a next step it announced but did not start (a "stalled" turn)
 //   offer    — the work is done; an optional follow-up is offered
 //   none     — a report; nothing is asked
 // Menus and permission prompts are structured signals and never reach the model. Each finished
@@ -18,7 +19,7 @@ import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { readJson, updateJson } from './store.mjs'
-import { detectQuestion, effectiveAgent, replyOf, turnKey } from './lanes.mjs'
+import { detectQuestion, detectStall, stallCard, effectiveAgent, replyOf, turnKey } from './lanes.mjs'
 
 export const DEFAULT_MODEL = 'claude-haiku-5-5'
 export const DEFAULT_JEV_MODEL = 'jev-1.14.0'
@@ -117,7 +118,11 @@ export function cleanOptions(list) {
     .slice(0, MAX_OPTIONS)
 }
 
-/** Parses the Claude model's answer; null when it is not one of the labels. */
+/**
+ * Parses the Claude model's answer; null when it is not one of the labels. `stalled` marks a
+ * decision that is only a go-ahead for an announced next step: the lanes drop it while a
+ * background job is still running.
+ */
 export function parseClassification(text) {
   const m = /\{[\s\S]*\}/.exec(text || '')
   if (!m) return null
@@ -125,7 +130,7 @@ export function parseClassification(text) {
     const r = JSON.parse(m[0])
     if (!LABELS.has(r.label)) return null
     const decision = r.label === 'decision'
-    return { label: r.label, question: decision ? String(r.question || '').trim().slice(0, 400) : '', options: decision ? cleanOptions(r.options) : [] }
+    return { label: r.label, question: decision ? String(r.question || '').trim().slice(0, 400) : '', options: decision ? cleanOptions(r.options) : [], ...(decision && r.stalled === true ? { stalled: true } : {}) }
   } catch {
     return null
   }
@@ -177,7 +182,11 @@ export function jevRequest(reply, model) {
   return { body: { model, state: tail, questions }, candidates, tail }
 }
 
-/** Reads a Jev response: the top label and, for a decision, the buttons Jev finds fitting. */
+/**
+ * Reads a Jev response: the top label and, for a decision, the buttons Jev finds fitting. Jev
+ * writes no text, so the rules say whether the decision is a stalled turn (an announced next
+ * step and no question) and phrase its card.
+ */
 export function parseJev(json, candidates, tail) {
   const answers = json?.answers || {}
   const label = answers.label?.choice
@@ -189,7 +198,11 @@ export function parseJev(json, candidates, tail) {
     .sort((a, b) => b.p - a.p)
     .slice(0, MAX_OPTIONS)
     .map(({ label: l, reply: r }) => ({ label: l, reply: r }))
-  return { label, question: detectQuestion(tail) || lastLine(tail), options }
+  const asked = detectQuestion(tail, { stalled: false })
+  const stall = asked ? null : detectStall(tail)
+  if (!stall) return { label, question: asked || lastLine(tail), options }
+  const card = stallCard(stall)
+  return { label, question: card.text, options: options.length ? options : card.options, stalled: true }
 }
 
 function runClaude({ bin, model, timeoutMs }, input) {
@@ -249,7 +262,7 @@ export function classKey(agent, settings) {
 
 /**
  * Classifies finished turns that have no structured signal, at most `perRefresh` per call, most
- * recent first, and returns the cache (sessionId -> {key, label, question, options}).
+ * recent first, and returns the cache (sessionId -> {key, label, question, options, stalled?}).
  * @param {object} ps worktree ps with final replies applied
  * @param {object} opts.projects managed repo ids (empty = all); opts.excludeSessions e.g. the coordinator
  */
@@ -285,7 +298,7 @@ export async function readTurnClasses(ps, config, { run, env, projects = [], exc
       for (const { t, r } of results) {
         s[t.id] = r.error
           ? { key: t.key, errorAt: Date.now(), error: r.error }
-          : { key: t.key, label: r.label, question: r.question, options: r.options || [], provider: settings.provider, model: settings.model, at: Date.now() }
+          : { key: t.key, label: r.label, question: r.question, options: r.options || [], ...(r.stalled ? { stalled: true } : {}), provider: settings.provider, model: settings.model, at: Date.now() }
       }
       for (const id of Object.keys(s)) if (!live.has(id) && !batch.some((t) => t.id === id)) delete s[id]
       return s
@@ -308,7 +321,7 @@ export function applyTurnClasses(ps, classes = {}, settings = null) {
         const c = classes[a.orcaSessionId]
         if (!c?.label) return a
         const ea = effectiveAgent(a)
-        return c.key === classKey({ ...ea, finalReply: a.finalReply }, settings) ? { ...a, turnClass: { label: c.label, question: c.question || '', options: c.options || [] } } : a
+        return c.key === classKey({ ...ea, finalReply: a.finalReply }, settings) ? { ...a, turnClass: { label: c.label, question: c.question || '', options: c.options || [], ...(c.stalled ? { stalled: true } : {}) } } : a
       })
     }))
   }

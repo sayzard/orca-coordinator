@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { deriveSessions, detectQuestion, groupByProject, fingerprint, applyFinalReplies, turnKey } from '../cli/lib/lanes.mjs'
+import { deriveSessions, detectQuestion, detectStall, groupByProject, fingerprint, applyFinalReplies, turnKey } from '../cli/lib/lanes.mjs'
+import { autoCardFor } from '../cli/lib/decisions.mjs'
 
 const ps = JSON.parse(readFileSync(new URL('./fixtures/worktree-ps.json', import.meta.url), 'utf8'))
 const byId = (sessions) => Object.fromEntries(sessions.map((s) => [s.sessionId, s]))
@@ -254,4 +255,78 @@ test('a working subagent reported under children keeps the session running', () 
   a.children[0].state = 'done'
   s = byId(deriveSessions(clone))['sess-working']
   assert.notEqual(s.lane, 'running')
+})
+
+// Reported by the person: a turn ended with a plan and "I'll go in this order, starting with
+// step 2 now", with nothing running. Nothing happens until the person says "go ahead", yet the
+// board showed the session as idle.
+test('a turn that stops right after announcing its next step is flagged as stalled', () => {
+  assert.equal(detectStall('Plan:\n1. Move the parser into its own module\n2. Add the retry test\nI\'ll go in this order and start with step 1 now.'), "I'll go in this order and start with step 1 now.")
+  assert.equal(detectStall('작업을 셋으로 나눴습니다.\n1. 파서 분리\n2. 캐시 비우기\n3. 문서 갱신\n위 차례대로 곧바로 착수하겠습니다. 2단계 캐시 비우기부터 시작합니다.'), '2단계 캐시 비우기부터 시작합니다.')
+  assert.equal(detectStall('다음으로 로그 수준을 낮추고 재시작하겠습니다.'), '다음으로 로그 수준을 낮추고 재시작하겠습니다.')
+  assert.equal(detectStall('빌드 캐시가 비어 있습니다. 설정 파일부터 점검합니다.'), '설정 파일부터 점검합니다.')
+  assert.equal(detectStall("The schema is ready. Next, I'll add the retry test."), "Next, I'll add the retry test.")
+  // "Unless you object" still stops the turn: the work waits for the person.
+  assert.ok(detectStall("I'll proceed with the migration next unless you object."))
+  // The card asks whether to proceed.
+  assert.equal(detectQuestion('다음으로 로그 수준을 낮추고 재시작하겠습니다.'), '진행할까요? “다음으로 로그 수준을 낮추고 재시작하겠습니다.”')
+  assert.equal(detectQuestion("The schema is ready. Next, I'll add the retry test."), "Go ahead? “Next, I'll add the retry test.”")
+  // A real question near the end wins over the announcement.
+  assert.equal(detectQuestion('배포를 오늘 할까요, 내일 할까요?\n답을 주시기 전에 먼저 릴리스 노트부터 다듬겠습니다.'), '배포를 오늘 할까요, 내일 할까요?')
+})
+
+test('work that resumes by itself, waits for later or is a promise is not a stalled turn', () => {
+  // A job is still going and the agent carries on when it reports.
+  assert.equal(detectStall('색인을 새로 만들고 있습니다. 작업이 완료되면 건수를 비교해 보고하겠습니다.'), null)
+  assert.equal(detectStall("The import is running in the background. When it finishes I'll compare the row counts and report."), null)
+  assert.equal(detectStall('렌더 작업이 백그라운드에서 실행 중입니다.\n다음으로 README를 고치겠습니다.'), null)
+  assert.equal(detectStall("The reviewer subagent is still working.\nNext, I'll apply its notes."), null)
+  // Remaining work for later, for someone else, or behind an outside event.
+  assert.equal(detectStall('Deployed to staging.\nRemaining: update the changelog and tag the release after QA.'), null)
+  assert.equal(detectStall('리뷰가 승인되면 배포 태그를 먼저 붙이겠습니다.'), null)
+  assert.equal(detectStall("I'll rebase once the PR is merged."), null)
+  assert.equal(detectStall('릴리스 태그는 내일 오전에 먼저 붙이겠습니다.'), null)
+  // Standing promises, refusals and offers.
+  assert.equal(detectStall('앞으로는 마이그레이션을 먼저 검증하겠습니다.'), null)
+  assert.equal(detectStall("From now on I'll batch the deploys first."), null)
+  assert.equal(detectStall('태그는 붙이지 않고 우선 초안으로만 남겨 두겠습니다.'), null)
+  assert.equal(detectStall('원하시면 지금 바로 스키마를 옮기겠습니다.'), null)
+  assert.equal(detectStall("If you want, I'll start with step 1 now."), null)
+  // A report of what was done, including a step announced earlier in the same turn.
+  assert.equal(detectStall('먼저 파서를 떼어 내겠습니다.\n파서를 떼어 냈고 단위 테스트 12개가 통과합니다.'), null)
+  assert.equal(detectStall("First I'll split the parser.\nDone: the parser is split and all tests pass."), null)
+  assert.equal(detectQuestion('일정은 문서 갱신을 우선으로 짜겠습니다.'), null)
+})
+
+test('a stalled turn shows under "Needs you" with a go-ahead button, unless something still runs', () => {
+  const reply = '작업을 셋으로 나눴습니다.\n위 차례대로 곧바로 착수하겠습니다. 2단계 캐시 비우기부터 시작합니다.'
+  const clone = structuredClone(ps)
+  const a = clone.worktrees[1].agents[0]
+  Object.assign(a, { state: 'done', stateStartedAt: 1795435535871, programStatus: { state: 'done' }, toolName: null, lastAssistantMessage: reply })
+  let s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.lane, 'human')
+  assert.equal(s.attention.text, '진행할까요? “2단계 캐시 비우기부터 시작합니다.”')
+  assert.equal(s.attention.stalled, true)
+  assert.deepEqual(autoCardFor(s).options, [{ label: '진행', reply: '진행해 주세요.', send: true }])
+  assert.equal(autoCardFor(s).reasonKey, 'auto.stalled')
+  // A background shell is still running: it wakes the agent, so the person is not needed.
+  Object.assign(a, { state: 'working', mainAgent: { state: 'done', stateStartedAt: 1795435535871 } })
+  s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.background, true)
+  assert.equal(s.attention, null)
+  assert.notEqual(s.lane, 'human')
+  // The classifier's stalled decision is dropped the same way; its other decisions are not.
+  a.turnClass = { label: 'decision', question: '진행할까요?', options: [{ label: '진행', reply: '진행해 주세요.' }], stalled: true }
+  assert.equal(byId(deriveSessions(clone))['sess-working'].attention, null)
+  a.turnClass = { label: 'decision', question: '어느 리전에 배포할까요?', options: [] }
+  assert.equal(byId(deriveSessions(clone))['sess-working'].lane, 'human')
+  // A working subagent keeps the session running.
+  delete a.turnClass
+  a.subagents = [{ id: 'a1', state: 'working' }]
+  assert.equal(byId(deriveSessions(clone))['sess-working'].lane, 'running')
+  // Remaining work for later is a report, with or without anything running.
+  Object.assign(a, { state: 'done', mainAgent: undefined, subagents: [], lastAssistantMessage: 'Deployed to staging.\nRemaining: update the changelog and tag the release after QA.' })
+  s = byId(deriveSessions(clone))['sess-working']
+  assert.equal(s.attention, null)
+  assert.notEqual(s.lane, 'human')
 })

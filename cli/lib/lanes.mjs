@@ -1,5 +1,6 @@
 // Turns `orca worktree ps --json` (+ `orca agent list --json`) into session rows with a lane:
-//   human   — needs the person (a question, a menu, a permission prompt)
+//   human   — needs the person (a question, a menu, a permission prompt, or a turn that stopped
+//             right after announcing its next step)
 //   running — working now
 //   review  — finished with unread output: check the result
 //   idle    — finished and already seen
@@ -47,21 +48,76 @@ function asksThePerson(line) {
 // question with notes (report paths, what to look at), so a few lines is not enough.
 const QUESTION_TAIL_LINES = 20
 
-/** Returns the last line near the end of `text` that reads as a question to the person, or null. */
-export function detectQuestion(text) {
-  if (!text) return null
-  const withoutCode = text.replace(/```[\s\S]*?```/g, ' ')
-  const lines = withoutCode
+function replyLines(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, ' ')
     .split('\n')
     .map((l) => l.trim())
-    // Skip quotes and polite closers ("if you want…") that are not pending questions.
-    .filter((l) => l && !l.startsWith('>') && !/^(만약|if you want|원하시면 언제든)/i.test(l))
+    .filter((l) => l && !l.startsWith('>'))
+}
+
+// A "stalled" turn: the reply's last sentence announces what the agent is about to do, and the
+// turn ended there. Nothing happens until the person says "go ahead". Found by a first-person
+// intent ("…하겠습니다", "I'll …") with a word that makes it the immediate next step ("이제",
+// "다음으로", "…부터", "now", "next", "start with"). False alarms cost more than misses here, so
+// anything that reads as waiting, later, conditional or a standing promise is left alone.
+const KO_INTENT = /(겠습니다|겠어요|[할갈볼둘낼쓸]게요|(시작|진행|착수|확인|점검|수정|처리|작업|적용|실행|검토|정리|반영|구현|조사|분석|재시도)합니다|(넘어|들어|이어)갑니다)[.!…]*$/
+const KO_NOW = /(^|[\s(])(이제|지금부터|지금\s*바로|바로|곧바로|곧장|이어서|먼저|우선(?![으순적])|다음(으로|은|\s*단계(로|는)))[\s,]|부터\s*(바로\s*)?[가-힣]*\s*(시작|진행|착수|확인|점검|수정|처리|작업|적용|살펴|고치|손대|해\s*보|하겠)|(이|위|아래|그)\s*(순서|계획|방향|방식)(대로|으로|로)\s/
+const EN_INTENT = /\b(i['’]ll|i will|i['’]m going to|i am going to|i['’]m (now |next )?(starting|proceeding|moving on|going ahead|continuing|beginning)|let me (start|begin|proceed|go ahead|continue|move on))\b|^(next|now|first),? (up )?(is|i|i['’]ll)\b|^(starting|proceeding|moving on|going ahead|continuing) (with|to|on|now)\b/i
+const EN_NOW = /\b(now|next|first|right away|immediately|straight away|go(ing)? ahead|start(ing)? (with|on|by|at|from)|begin(ning)? (with|by)|proceed(ing)?|moving on|continu(e|ing) (with|to|on))\b/i
+// Waiting on something that reports back, a time, a condition, the person's wish, a refusal, or a
+// promise about future turns: none of these is a step the agent stopped in front of.
+const KO_NOT_NOW =
+  /(?<![화장표측반전단평양정후])면[\s,]|대로\s|[가-힣]\s*(뒤|후|다음)(에|에는|엔)?[\s,]|때(는|엔|에|마다|까지|부터)?[\s,]|동안|까지[\s,]|기\s*전|(는|인|던)\s*중|중입니다|중이|기다리|대기|예약|알림|자동으로|배경에서|백그라운드|돌(고|리고|아가고)\s*있|에서는\s|내일|모레|나중|추후|이따|향후|앞으로|이후|다음\s*(주|달|번|회|에|부터|배포|릴리스|버전|세션|라운드|실행|작업\s*때)|[0-9]\s*(시|분|일|월)|:[0-9]{2}|요일|오전|오후|주말|항상|매번|않|안\s*하|말겠|못|(그대로|에만|남겨|놔|보류해|열어|켜|띄워)\s*두|원하|필요하|말씀|알려\s*주|하라고|요청|주시|드릴\s*수|수\s*있/
+const EN_NOT_NOW =
+  /\b(when|once|after|until|as soon as|if|whenever|while|before|tomorrow|tonight|later|next (week|time|round|session|release|run|month|sprint)|from now on|going forward|in (the )?future|won['’]t|will not|not going to|never|keep|leave|hold off|wait(ing)?|notif(y|ied|ies)|scheduled|running|in the background|in progress|let you know|report back|get back to you|can|could|would|should|might|may|at [0-9])\b/i
+// The lines before the last one saying something is still going: the agent comes back by itself.
+const STILL_RUNNING =
+  /(돌(고|리고|아가고)\s*있|진행\s*중|실행\s*중|생성\s*중|(는|인)\s*중입니다|하는\s*중|기다리(고|는)|대기\s*중|백그라운드|배경에서|(에이전트|워커|작업자|세션)[^.]{0,20}띄웠|끝나면|끝나는\s*대로|나오면|오면\s|완료되면|알림(이|을|으로)\s*(오|받|이어)|\b(is|are|still) running\b|\bin the background\b|\bin progress\b|\bwaiting (for|on)\b|\b(when|once) (it|they|the [\w -]+?) (finish|complete|report|return|land|arrive|come)|\bscheduled\b|\bsubagents?\b|\bworkers?\b)/i
+const STALL_CONTEXT_LINES = 6
+
+/**
+ * The sentence at the very end of `text` that announces a step the agent is about to take, when
+ * nothing in the last lines says the work resumes by itself; else null.
+ */
+export function detectStall(text) {
+  if (!text) return null
+  const lines = replyLines(text)
+  const last = (lines[lines.length - 1] || '').replace(/\*\*|`/g, '').replace(/^#+\s*/, '').replace(/^[-*•]\s+/, '')
+  const sentence = (last.split(/(?<=[.!?…])\s+/).pop() || '').trim()
+  if (!sentence || sentence.length > 300 || /[?:：]$/.test(sentence)) return null
+  const ko = /[가-힣]/.test(sentence)
+  const announces = ko ? KO_INTENT.test(sentence) && KO_NOW.test(sentence) && !KO_NOT_NOW.test(sentence) : EN_INTENT.test(sentence) && EN_NOW.test(sentence) && !EN_NOT_NOW.test(sentence)
+  if (!announces || OFFER_SENTENCE.test(sentence)) return null
+  const context = lines.slice(-STALL_CONTEXT_LINES).join(' ')
+  return STILL_RUNNING.test(context) ? null : sentence.slice(0, 300)
+}
+
+/** The card for a stalled turn asks whether to proceed, with a one-tap go-ahead. */
+export function stallCard(sentence) {
+  const ko = /[가-힣]/.test(sentence)
+  return {
+    text: ko ? `진행할까요? “${sentence}”` : `Go ahead? “${sentence}”`,
+    options: [ko ? { label: '진행', reply: '진행해 주세요.' } : { label: 'Go ahead', reply: 'Go ahead.' }]
+  }
+}
+
+/**
+ * Returns the last line near the end of `text` that reads as a question to the person, or null.
+ * A stalled turn (see detectStall) counts too, phrased as asking to proceed, unless `stalled` is
+ * false: the caller then handles stalls itself (a session with a background job is not stalled).
+ */
+export function detectQuestion(text, { stalled = true } = {}) {
+  if (!text) return null
+  // Skip quotes and polite closers ("if you want…") that are not pending questions.
+  const lines = replyLines(text).filter((l) => !/^(만약|if you want|원하시면 언제든)/i.test(l))
   const tail = lines.slice(-QUESTION_TAIL_LINES)
   for (let i = tail.length - 1; i >= 0; i--) {
     // Markdown emphasis and heading marks are dropped from the card text.
     if (asksThePerson(tail[i])) return tail[i].replace(/\*\*/g, '').replace(/^#+\s*/, '').slice(0, 400)
   }
-  return null
+  const stall = stalled ? detectStall(text) : null
+  return stall ? stallCard(stall).text : null
 }
 
 export function fingerprint(agent) {
@@ -101,9 +157,15 @@ function attentionFor(agent) {
     return { kind: 'question', text, canReply: true, source: c ? 'model' : 'rule', options: c?.label === 'decision' ? c.options || [] : [] }
   }
   if (agent.state === 'done') {
-    if (c) return c.label === 'decision' ? { kind: 'question', text: c.question || detectQuestion(replyOf(agent)) || lastLine(replyOf(agent)), canReply: true, source: 'model', options: c.options || [] } : null
-    const q = detectQuestion(replyOf(agent))
+    const reply = replyOf(agent)
+    // A go-ahead for an announced step is not needed while a background job will wake the agent.
+    if (c?.label === 'decision') return c.stalled && agent.background ? null : { kind: 'question', text: c.question || detectQuestion(reply) || lastLine(reply), canReply: true, source: 'model', options: c.options || [], ...(c.stalled ? { stalled: true } : {}) }
+    // A model's "offer" or "none" overrides the question rules, but not the stalled-turn rule:
+    // that rule is narrow, and a turn it catches stays stuck until the person answers.
+    const q = c ? null : detectQuestion(reply, { stalled: false })
     if (q) return { kind: 'question', text: q, canReply: true, source: 'rule' }
+    const stall = agent.background ? null : detectStall(reply)
+    if (stall) return { kind: 'question', canReply: true, source: 'rule', stalled: true, ...stallCard(stall) }
   }
   return null
 }

@@ -7,7 +7,8 @@ needs the person. Two detectors are in play:
   turn's reply and labels it `decision`, `offer` or `none`; its prompt and synthetic examples are
   `SYSTEM_PROMPT`; cached answers are keyed by a hash of that text (`PROMPT_ID`);
 - **the rules** (`detectQuestion` in `cli/lib/lanes.mjs`): the fallback while a model result is
-  pending or when no model is available.
+  pending or when no model is available. Their stalled-turn part (`detectStall`: the reply ends
+  by announcing the next step) also applies under a model's `offer` or `none`.
 
 The Orca bot sends this file to the coordinator as a request once a day; the coordinator assigns
 one worker to it.

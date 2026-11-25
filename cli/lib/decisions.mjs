@@ -1,7 +1,8 @@
 // "My decisions" cards. Two kinds:
 //   stored   — written by the coordinator (`coord decision add`): question + recommended reply
 //   auto:<id> — computed from live state (a menu, a permission prompt, a question in the last
-//               reply) so the board is useful before any digest runs
+//               reply, a turn that stopped after announcing its next step) so the board is useful
+//               before any digest runs
 // Delivery is guarded: a card is only answered while its session is still where the card saw it.
 import { readJson, updateJson, appendHistory, newId, tempFile } from './store.mjs'
 import { orca } from './orca.mjs'
@@ -26,8 +27,8 @@ export function autoCardFor(session) {
     sessionId: session.sessionId,
     question: a.text,
     recommendation: '',
-    reason: a.kind === 'menu' ? 'A menu is open in the session. Pick an option there.' : a.kind === 'permission' ? 'Waiting for a permission decision. Approve or deny it in the session.' : 'The last reply ends with a question. Request a digest for a suggested reply.',
-    reasonKey: a.source === 'model' && a.kind === 'question' ? 'auto.model' : `auto.${a.kind}`,
+    reason: a.kind === 'menu' ? 'A menu is open in the session. Pick an option there.' : a.kind === 'permission' ? 'Waiting for a permission decision. Approve or deny it in the session.' : a.stalled ? 'The turn ended right after announcing its next step. Nothing happens until you say go ahead.' : 'The last reply ends with a question. Request a digest for a suggested reply.',
+    reasonKey: a.stalled ? 'auto.stalled' : a.source === 'model' && a.kind === 'question' ? 'auto.model' : `auto.${a.kind}`,
     // Quick replies from the turn classifier: pressing one sends it at once.
     options: (a.options || []).map((o) => ({ label: o.label, reply: o.reply, send: true })),
     needsInput: '',

@@ -157,6 +157,11 @@ quick-reply buttons that send at once. Optional offers and reports stay out of "
 rules take over while a result is pending, when the provider is unavailable, and whenever the
 classifier is off. Results are cached in `~/.orca-coordinator/cache/turn-class.json`.
 
+A turn that stops right after announcing its next step ("I'll go in this order and start with
+step 2 now") also needs you: nothing happens until you say "go ahead". A narrow rule catches it,
+also when the classifier calls the turn a report or is off; the card asks whether to proceed and has a one-tap go-ahead. A session whose background job or
+subagent is still running is left alone, as is a reply that says it resumes when a job reports.
+
 The Jev key is entered in the Settings tab and kept in Orca's encrypted plugin secrets (the OS
 keychain), never in the coordinator's files; the board passes it to `coord` as
 `TYPESAFE_API_KEY`. `coord` run elsewhere (a terminal, the bot) without that variable uses the

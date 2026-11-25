@@ -267,7 +267,7 @@ async function modelPredictions(items, model) {
       while (next < todo.length) {
         const it = todo[next++]
         const r = await classifyText(it.reply, settings)
-        if (!r.error) fresh.push({ id: it.id, label: r.label, question: r.question, options: r.options || [] })
+        if (!r.error) fresh.push({ id: it.id, label: r.label, question: r.question, options: r.options || [], ...(r.stalled ? { stalled: true } : {}) })
       }
     })
   )
