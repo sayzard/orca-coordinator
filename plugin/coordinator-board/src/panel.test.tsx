@@ -222,7 +222,7 @@ test('the lane word of a running session row has weight and color; idle rows sta
   await p.select({ label: '보드' }, 'progress')
   const running = p.findAll({ type: 'Text', text: '진행 중' })
   assert.ok(running.length > 0)
-  for (const r of running) assert.deepEqual({ weight: (r as any).props.weight, tone: (r as any).props.tone }, { weight: 'semibold', tone: 'accent' })
+  for (const r of running) assert.deepEqual({ weight: (r as any).props.weight, tone: (r as any).props.tone }, { weight: 'semibold', tone: 'success' })
   // The rest of the row stays muted, and an idle row keeps its one plain description.
   assert.ok(p.find({ type: 'Text', text: /^· / }))
   assert.equal(p.find({ type: 'Text', text: '대기' }), null)

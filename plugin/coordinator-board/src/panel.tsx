@@ -295,7 +295,8 @@ function LaneMark({ lane }: { lane: string }) {
 }
 
 // The lane word of a running / needs-you row is set apart from the muted "Idle" of other rows.
-const LANE_TONE: Record<string, Tone> = { running: 'accent', human: 'warning' }
+// Running is green so it reads apart from the muted "Idle" at a glance, without shouting.
+const LANE_TONE: Record<string, Tone> = { running: 'success', human: 'warning' }
 
 /**
  * A list row: animated mark for running / needs-you sessions, the regular icon otherwise. With
@@ -384,14 +385,17 @@ function ProjectGroupItem({ g }: { g: ProjectGroup }) {
         </Stack>
       </Row>
       {open ? (
-        <List label={g.project}>
-          {g.sessions
-            .filter((s) => s.lane !== 'idle' || g.sessions.length <= 6)
-            .slice(0, 12)
-            .map((s) => (
-              <SessionItem s={s} />
-            ))}
-        </List>
+        // Indented under the project name so the rows read as its children.
+        <Box paddingX="lg">
+          <List label={g.project}>
+            {g.sessions
+              .filter((s) => s.lane !== 'idle' || g.sessions.length <= 6)
+              .slice(0, 12)
+              .map((s) => (
+                <SessionItem s={s} />
+              ))}
+          </List>
+        </Box>
       ) : null}
     </Stack>
   )
