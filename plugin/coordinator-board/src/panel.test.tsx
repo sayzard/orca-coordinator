@@ -144,6 +144,29 @@ test('pressing a kanban card opens its session', async () => {
   assert.deepEqual({ kind: open.kind, handle: open.handle }, { kind: 'terminal', handle: 'term_w-0004' })
 })
 
+// Asked by the person: a session on a paired Orca server did nothing when pressed.
+test('a remote session row says to open it from the sidebar when the board cannot', async () => {
+  const remote = { sessionId: 'remote:env-gpu:pane-1', kind: 'chat', agent: 'antigravity', title: 'Fix the fare loader', state: 'working', lane: 'running', updatedAt: 1, workspace: 'svc', handle: null, workspaceSelector: 'id:repo-remote::/home/me/svc', path: '/home/me/svc', environment: 'gpu-box', environmentId: 'env-gpu' }
+  const group = { repoId: 'repo-remote', project: 'svc @ gpu-box', counts: { human: 0, running: 1, review: 0, idle: 0, unknown: 0 }, sessions: [remote] }
+  const snapshot = { ok: true, status: { ...status, projects: [...status.projects, group] }, at: 1 }
+  const { h, sent } = host({
+    'board.snapshot': () => snapshot,
+    'session.open': (input: unknown) => {
+      sent.push({ name: 'session.open', input })
+      return { ok: false, code: 'open_remote', message: 'workspace not listed' }
+    }
+  })
+  const p = await mount(panel, { host: h, locale: 'en-US' })
+  await p.select({ label: 'Board' }, 'progress')
+  const row = p.findAll({ type: 'ListItem' }).find((e) => e.key?.endsWith('p:remote:env-gpu:pane-1'))
+  assert.ok(row)
+  await p.press(row)
+  const open = sent.find((s) => s.name === 'session.open')?.input as { environment: string }
+  assert.equal(open.environment, 'env-gpu')
+  assert.ok(p.find({ text: /Open it from the Orca sidebar/ }))
+  assert.deepEqual(p.errors, [])
+})
+
 // Asked by the person: follow-up rows for closed sessions could be neither pressed nor removed.
 test('a follow-up row opens a live session and can be cleared; a closed session shows it is gone', async () => {
   const live = status.history.find((h: any) => h.type === 'decision.answered')

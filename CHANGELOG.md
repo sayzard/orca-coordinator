@@ -53,9 +53,13 @@ All notable changes to this project are documented here. The format follows
 
 - Sessions on paired Orca servers (`--environment`) now show on the board. A local
   `orca worktree ps` lists them only as omitted hosts, so the board asks each server in parallel
-  and skips the ones it cannot reach. Their projects are labeled `name @ server`, "Open session"
-  opens them on that server, and their questions are answered in the session (the board cannot
-  send to a remote session).
+  and skips the ones it cannot reach. Their projects are labeled `name @ server`, and their
+  questions are answered in the session (the board cannot send to a remote session). Pressing a
+  remote row says to open it from the Orca sidebar: Orca's `workspace.list` does not list paired
+  servers' workspaces yet, `worktree activate --environment` opens the worktree on the server
+  rather than in this window, and `terminal switch --environment` brings a shell terminal forward
+  rather than the agent's chat tab. Session rows also show why an open failed instead of doing
+  nothing.
 - Kanban "Follow-up" rows can be cleared from the board with their own × button, and open their
   session with an open button while it is on the board. A row whose session has left the board
   (closed chat, released worker) says "session closed" instead of being a dead, unpressable row.

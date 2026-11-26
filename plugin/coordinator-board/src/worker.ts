@@ -230,29 +230,30 @@ export default function activate(orca: OrcaWorkerApi): void {
   orca.panels.handle('digest.request', async () => result(await coord(['digest']), () => ({ key: 'msg.digest' })))
 
   orca.panels.handle('session.open', async ({ kind, handle, workspaceSelector, path, environment }) => {
-    // A session on a paired Orca server: its folder path means nothing here, so open the
-    // worktree on that server.
-    if (environment) {
-      const env = await orcaCli(['worktree', 'activate', '--environment', environment, '--worktree', workspaceSelector, '--json'], 30_000)
-      return env.ok ? done('msg.opened') : { ok: false, code: 'open_failed', message: env.error.message }
-    }
     // A terminal session: switch straight to its pane.
-    if (kind === 'terminal' && handle?.startsWith('term_')) {
+    if (!environment && kind === 'terminal' && handle?.startsWith('term_')) {
       const env = await orcaCli(['terminal', 'switch', '--terminal', handle, '--json'], 20_000)
       if (env.ok) return done('msg.opened')
     }
-    // Chats and folder workspaces: the CLI cannot activate folders, but the host API can open any
-    // workspace in the desktop app. Find it by its folder path.
+    // Chats, folder workspaces and sessions on paired servers: the host API opens any workspace in
+    // this window, on any host. Find it by its folder path on the session's host; a paired
+    // server's rows carry hostId `runtime:<environment id>`, this machine's do not.
     if (path) {
       try {
         const { workspaces } = await orca.host.call('workspace.list', {})
-        const match = workspaces.find((w) => w.path === path)
+        const onHost = (w: { hostId: string | null }) => (environment ? w.hostId === `runtime:${environment}` : !w.hostId?.startsWith('runtime:'))
+        const match = workspaces.find((w) => w.path === path && onHost(w))
         if (match) {
           await orca.host.call('workspace.open', { workspaceId: match.id })
           return done('msg.opened')
         }
       } catch {}
     }
+    // Orca 2026-11: `workspace.list` leaves out paired servers' workspaces, `worktree activate
+    // --environment` opens the worktree on that server rather than in this window, and `terminal
+    // switch --environment` brings a shell terminal forward, not the agent's chat tab (the person
+    // chose the hint over that). Say where to open it.
+    if (environment) return { ok: false, code: 'open_remote', message: `workspace not listed for runtime:${environment}` }
     const env = await orcaCli(['worktree', 'activate', '--worktree', workspaceSelector, '--json'], 20_000)
     return env.ok ? done('msg.opened') : { ok: false, code: 'open_failed', message: env.error.message }
   })

@@ -209,6 +209,19 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 - Pressing the status bar item toggles the right sidebar; Orca has no API to open a specific panel.
 - Work is assigned on the local host only. Paired servers, PR merging from the board, follow-up
   questions and image attachments are not implemented yet.
+- Sessions on paired Orca servers (`--environment`) are shown, labeled `project @ server`, but:
+  - They cannot be opened from the board; pressing one says to open it from the Orca sidebar.
+    Orca's plugin `workspace.list` leaves out paired servers' workspaces, `orca worktree activate
+    --environment` opens the worktree on the server rather than in this window, and `orca terminal
+    switch --environment` brings a shell terminal forward, not the agent's chat tab. Tracked in
+    stablyai/orca#40723, #48366 and #30852 (PR #48389). Once `workspace.list` lists them with a
+    `runtime:<id>` host, the board opens them without changes.
+  - Their questions are answered in the session: the board's reply paths (Orca session id or a
+    local terminal handle) do not reach them, and those servers reject `orca agent` commands.
+  - A finished remote session shows as Idle, never To review: Orca reports no unread state for it.
+  - Unreachable servers are skipped. Managed projects (`coord setup --projects`) and the Settings
+    picker list local repositories only, so restricting the board to some projects hides every
+    paired server's sessions.
 - Replies from the coordinator to the board go to the board's mailbox terminal
   (`Coordinator Board` tab); it is recreated if closed.
 - The default routing table names models available in late 2026; update it as providers ship new

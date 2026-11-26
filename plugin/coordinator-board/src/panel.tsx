@@ -305,9 +305,23 @@ const LANE_TONE: Record<string, Tone> = { running: 'success', human: 'warning' }
  * `status` (the lane word), those rows show it in weight and color before the muted description.
  */
 /** Called as a function (not a component) so its key stays on the ListItem in the parent's tree. */
-function laneRow({ k, lane, icon, title, status, description, onPress }: { k: string; lane: string; icon: IconName; title: string; status?: string; description: string; onPress?: () => void }) {
+/** A session row; `noteId` names the action whose result (e.g. why it could not open) shows under it. */
+function laneRow({ k, lane, icon, title, status, description, onPress, noteId }: { k: string; lane: string; icon: IconName; title: string; status?: string; description: string; onPress?: () => void; noteId?: string }) {
   const plain = [status, description].filter(Boolean).join(' · ')
-  if (!LANE_MARK[lane]) return <ListItem key={k} icon={icon} title={title} description={plain} onPress={onPress} />
+  if (!LANE_MARK[lane] && !(noteId && read(notes)[noteId]))
+    return <ListItem key={k} icon={icon} title={title} description={plain} onPress={onPress} />
+  if (!LANE_MARK[lane])
+    return (
+      <ListItem key={k} onPress={onPress}>
+        <Stack gap="none">
+          <Text truncate>{title}</Text>
+          <Text size="xs" muted truncate>
+            {plain}
+          </Text>
+          <Note id={noteId!} />
+        </Stack>
+      </ListItem>
+    )
   return (
     <ListItem key={k} onPress={onPress}>
       <Row gap="sm" align="center">
@@ -328,6 +342,7 @@ function laneRow({ k, lane, icon, title, status, description, onPress }: { k: st
               {description}
             </Text>
           )}
+          {noteId ? <Note id={noteId} /> : null}
         </Stack>
       </Row>
     </ListItem>
@@ -345,6 +360,7 @@ function SessionItem({ s }: { s: SessionRow }) {
       title: s.title,
       status: t(L, `lane.${s.lane}` as Key),
       description: `${s.agent || s.kind} · ${s.workspace}`,
+      noteId: `open:${s.sessionId}`,
       onPress: () => void act(`open:${s.sessionId}`, () => plugin.request('session.open', { kind: s.kind, handle: s.handle, workspaceSelector: s.workspaceSelector, path: s.path || null, environment: s.environmentId || null }))
     })
   )
@@ -394,7 +410,7 @@ function ProjectGroupItem({ g }: { g: ProjectGroup }) {
               .filter((s) => s.lane !== 'idle' || g.sessions.length <= 6)
               .slice(0, 12)
               .map((s) => (
-                <SessionItem s={s} />
+                <SessionItem key={`p:${s.sessionId}`} s={s} />
               ))}
           </List>
         </Box>
@@ -422,7 +438,7 @@ const COLUMN_TONE: Record<Column, Tone> = { running: 'accent', review: 'warning'
 const LANE_ICON: Record<string, IconName> = { human: 'warning', running: 'play', review: 'check', idle: 'pause', unknown: 'info' }
 const COLUMN_LIMIT = 4
 
-type KanbanItem = { key: string; title: string; description: string; icon: IconName; lane?: string; onPress?: () => void; onHide?: () => void }
+type KanbanItem = { key: string; title: string; description: string; icon: IconName; lane?: string; noteId?: string; onPress?: () => void; onHide?: () => void }
 
 /** Clears one follow-up row; keys that left the history window are dropped so the list stays small. */
 function hideFollowUp(key: string, live: string[]) {
@@ -450,6 +466,7 @@ function kanbanColumns(snap: Extract<Snapshot, { ok: true }>, project: string, L
         description: [showProject ? g.project : null, s.agent || s.kind, s.workspace].filter(Boolean).join(' · '),
         icon: LANE_ICON[s.lane] || 'info',
         lane: s.lane,
+        noteId: `open:${s.sessionId}`,
         onPress: () => void openSession(s)
       })
     }
@@ -529,7 +546,7 @@ function KanbanColumn({ col, items }: { col: Column; items: KanbanItem[] }) {
         <Badge tone={COLUMN_TONE[col]}>{String(items.length)}</Badge>
       </Row>
       <List label={label}>
-        {shown.map((it) => (it.onHide ? followUpRow(it, L) : laneRow({ k: it.key, lane: it.lane || '', icon: it.icon, title: it.title, description: it.description, onPress: it.onPress })))}
+        {shown.map((it) => (it.onHide ? followUpRow(it, L) : laneRow({ k: it.key, lane: it.lane || '', icon: it.icon, title: it.title, description: it.description, onPress: it.onPress, noteId: it.noteId })))}
       </List>
       {items.length > COLUMN_LIMIT ? (
         <Button size="xs" variant="ghost" onPress={() => update(expandedColumns, (e) => ({ ...e, [col]: !open }))}>

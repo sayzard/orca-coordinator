@@ -187,7 +187,7 @@ test('a chat in a folder workspace opens through the host API, by its folder pat
   await worker.deactivate()
 })
 
-test('a session on a paired server opens on that server, not by its folder path here', async () => {
+test('a session on a paired server opens in this window, by its row on that server', async () => {
   const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
   process.env.FAKE_COORD_LOG = log
   const host = mockHost({
@@ -196,16 +196,50 @@ test('a session on a paired server opens on that server, not by its folder path 
       'statusBar.update': { ok: true },
       'notifications.show': { delivered: true },
       'commands.run': { ran: true },
-      'workspace.list': { workspaces: [{ id: 'ws-same-path', kind: 'worktree', name: 'svc', path: '/home/me/svc', branch: 'main', hostId: 'local' }], truncated: false },
+      'workspace.list': {
+        workspaces: [
+          { id: 'ws-same-path', kind: 'worktree', name: 'svc', path: '/home/me/svc', branch: 'main', hostId: 'local' },
+          { id: 'ws-remote', kind: 'worktree', name: 'svc', path: '/home/me/svc', branch: null, hostId: 'runtime:env-gpu' }
+        ],
+        truncated: false
+      },
       'workspace.open': { opened: true }
     }
   })
   const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
   const input = { kind: 'chat', handle: null, workspaceSelector: 'id:remote-repo::/home/me/svc', path: '/home/me/svc' }
+  // Opened in this window, by the row on that server, not the local one with the same path.
   assert.equal((await worker.request('session.open', { ...input, environment: 'env-gpu' })).ok, true)
+  assert.deepEqual(host.callsOf('workspace.open'), [{ workspaceId: 'ws-remote' }])
+  // A local session with the same path opens the local row.
+  assert.equal((await worker.request('session.open', input)).ok, true)
+  assert.deepEqual(host.callsOf('workspace.open').at(-1), { workspaceId: 'ws-same-path' })
+  // No row on that server: refused rather than activated on the server out of sight.
+  const refused = await worker.request('session.open', { ...input, environment: 'env-other' })
+  assert.equal(refused.ok, false)
+  assert.equal((refused as { code?: string }).code, 'open_remote')
+  await worker.deactivate()
+})
+
+// Seen live (Orca 2026-11): workspace.list has no rows for paired servers; the board says to
+// open the session from the sidebar instead of switching to an unrelated terminal tab.
+test('a remote session with no workspace row gets the sidebar hint', async () => {
+  const log = join(mkdtempSync(join(tmpdir(), 'coord-board-')), 'calls.log')
+  process.env.FAKE_COORD_LOG = log
+  const host = mockHost({
+    settings: { coordPath: fake('fake-coord.mjs'), notify: false, language: 'en' },
+    results: {
+      'statusBar.update': { ok: true },
+      'notifications.show': { delivered: true },
+      'commands.run': { ran: true },
+      'workspace.list': { workspaces: [{ id: 'ws-ssh', kind: 'worktree', name: 'svc', path: '/home/me/svc', branch: null, hostId: 'ssh:ssh-1' }], truncated: false },
+      'workspace.open': { opened: true }
+    }
+  })
+  const worker = await mountWorker(main, { host, events: ['agent.status.changed', 'workspace.created', 'workspace.removed'], commands: ['coordinator-board.toggle', 'coordinator-board.digest'] })
+  const r = await worker.request('session.open', { kind: 'chat', handle: null, workspaceSelector: 'id:remote-repo::/home/me/svc', path: '/home/me/svc', environment: 'env-gpu' })
+  assert.equal((r as { code?: string }).code, 'open_remote')
   assert.deepEqual(host.callsOf('workspace.open'), [])
-  // Without the server, the local Orca does not know the worktree.
-  assert.equal((await worker.request('session.open', { ...input, path: null })).ok, false)
   await worker.deactivate()
 })
 
