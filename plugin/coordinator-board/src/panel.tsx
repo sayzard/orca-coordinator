@@ -305,10 +305,14 @@ const LANE_TONE: Record<string, Tone> = { running: 'success', human: 'warning' }
  * `status` (the lane word), those rows show it in weight and color before the muted description.
  */
 /** Called as a function (not a component) so its key stays on the ListItem in the parent's tree. */
-/** A session row; `noteId` names the action whose result (e.g. why it could not open) shows under it. */
+/**
+ * A session row; `noteId` names the open action whose failure (why it could not open) shows under
+ * it. Success is not shown: the window moving is the answer, and the line stayed after it moved.
+ */
 function laneRow({ k, lane, icon, title, status, description, onPress, noteId }: { k: string; lane: string; icon: IconName; title: string; status?: string; description: string; onPress?: () => void; noteId?: string }) {
   const plain = [status, description].filter(Boolean).join(' · ')
-  if (!LANE_MARK[lane] && !(noteId && read(notes)[noteId]))
+  const failed = Boolean(noteId && read(notes)[noteId]?.ok === false)
+  if (!LANE_MARK[lane] && !failed)
     return <ListItem key={k} icon={icon} title={title} description={plain} onPress={onPress} />
   if (!LANE_MARK[lane])
     return (
@@ -342,7 +346,7 @@ function laneRow({ k, lane, icon, title, status, description, onPress, noteId }:
               {description}
             </Text>
           )}
-          {noteId ? <Note id={noteId} /> : null}
+          {failed ? <Note id={noteId!} /> : null}
         </Stack>
       </Row>
     </ListItem>

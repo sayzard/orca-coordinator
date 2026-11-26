@@ -142,6 +142,8 @@ test('pressing a kanban card opens its session', async () => {
   await p.press({ testId: 's:sess-working' })
   const open = sent.find((s) => s.name === 'session.open')?.input as { kind: string; handle: string }
   assert.deepEqual({ kind: open.kind, handle: open.handle }, { kind: 'terminal', handle: 'term_w-0004' })
+  // Opening is its own answer: no "Opened the session." line stays under the row.
+  assert.equal(p.find({ text: 'Opened the session.' }), null)
 })
 
 // Asked by the person: a session on a paired Orca server did nothing when pressed.
