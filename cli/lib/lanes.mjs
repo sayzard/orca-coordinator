@@ -193,12 +193,32 @@ function hasWorkingSubagent(agent) {
   return (agent.children || []).some((c) => c?.kind === 'agent' && c.state === 'working' && c.membership !== 'gone')
 }
 
+// How much later than the wait began the terminal must show work, so a status read while the
+// prompt was still opening is not taken for an answer.
+const RESUME_MARGIN_MS = 5000
+
+/**
+ * Seen live (Orca 1.4.271): after the person approves a plan (ExitPlanMode) or a permission in the
+ * terminal, Orca keeps the hook's wait (`state: waiting`, `agentWait`) until the agent's next hook,
+ * which can be minutes away. The program status, read from the terminal, moves on first: a menu
+ * or permission prompt shows there as `blocked`, so `working` observed after the wait began means
+ * the prompt was answered and the agent is running.
+ */
+export function resumedAfterWait(agent) {
+  const ps = agent.programStatus
+  if (ps?.state !== 'working' || !ps.observedAt) return false
+  if (!agent.agentWait && agent.state !== 'waiting' && agent.state !== 'blocked') return false
+  const since = agent.agentWait?.since || agent.mainAgent?.stateStartedAt || agent.stateStartedAt || 0
+  return ps.observedAt > since + RESUME_MARGIN_MS
+}
+
 /**
  * Orca keeps a session `working` ("monitoring") while a background shell runs, even after the
  * agent's turn has ended; `mainAgent.state` says whether the agent itself is done or waiting.
  * A session with a working subagent stays running: the main agent resumes when it reports back.
  */
 export function effectiveAgent(agent) {
+  if (resumedAfterWait(agent)) return { ...agent, state: 'working', agentWait: null, stateStartedAt: agent.programStatus.observedAt }
   const main = agent.mainAgent
   if (agent.state === 'working' && main && (main.state === 'done' || main.state === 'waiting') && !hasWorkingSubagent(agent)) {
     return { ...agent, state: main.state, stateStartedAt: main.stateStartedAt || agent.stateStartedAt, background: true }

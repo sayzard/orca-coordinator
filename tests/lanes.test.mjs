@@ -84,6 +84,25 @@ test('archived workspaces, unmanaged projects and the coordinator are left out',
   assert.deepEqual([...new Set(alphaOnly.map((x) => x.project))], ['alpha'])
 })
 
+// Seen live: a plan approved in the terminal kept Orca's wait (state waiting, agentWait) for
+// minutes while the terminal showed the agent working, so the board kept asking for the approval.
+test('a wait the terminal has moved past is running, not a card', () => {
+  const clone = structuredClone(ps)
+  const menu = clone.worktrees.flatMap((w) => w.agents || []).find((a) => a.orcaSessionId === 'sess-menu')
+  menu.toolName = 'ExitPlanMode'
+  menu.programStatus = { state: 'working', message: 'View phone mockups', observedAt: menu.agentWait.since + 300_000 }
+  let s = byId(deriveSessions(clone))['sess-menu']
+  assert.equal(s.lane, 'running')
+  assert.equal(s.attention, null)
+  // Working seen right as the prompt opened is not an answer.
+  menu.programStatus.observedAt = menu.agentWait.since + 1000
+  s = byId(deriveSessions(clone))['sess-menu']
+  assert.equal(s.lane, 'human')
+  // Neither is a blocked status, however recent.
+  menu.programStatus = { state: 'blocked', kind: 'permission', message: 'Allow Bash?', observedAt: menu.agentWait.since + 300_000 }
+  assert.equal(byId(deriveSessions(clone))['sess-menu'].lane, 'human')
+})
+
 test('agent list kinds override the address heuristic', () => {
   const s = byId(deriveSessions(ps, { agentList: { agents: [{ orcaSessionId: 'sess-question', kind: 'chat' }] } }))
   assert.equal(s['sess-question'].kind, 'chat')

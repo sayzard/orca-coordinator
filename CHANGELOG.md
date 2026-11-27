@@ -51,6 +51,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A plan or permission approved in the terminal no longer stays under "Needs you". Orca keeps the
+  hook's wait until the agent's next hook, sometimes for minutes, while the terminal already shows
+  it working; a `working` program status seen more than 5 s after the wait began now counts as
+  running. A prompt still open shows as `blocked` there and keeps its card.
 - Sessions on paired Orca servers (`--environment`) now show on the board. A local
   `orca worktree ps` lists them only as omitted hosts, so the board asks each server in parallel
   and skips the ones it cannot reach. Their projects are labeled `name @ server`, and their
